@@ -1,0 +1,12 @@
+module md-adf-exp
+
+go 1.23
+
+toolchain go1.23.9
+
+require (
+	github.com/tree-sitter-grammars/tree-sitter-markdown v0.5.0
+	github.com/tree-sitter/go-tree-sitter v0.25.0
+)
+
+require github.com/mattn/go-pointer v0.0.1 // indirect
