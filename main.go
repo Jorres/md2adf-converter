@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"md-adf-exp/internal/adf"
+	"md-adf-exp/adf"
 	"os"
 )
 

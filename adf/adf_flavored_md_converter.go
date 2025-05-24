@@ -205,9 +205,6 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 		case "code_span":
 			p.processCodeSpan(child, inlineContent, parent)
 
-		case "inline_link":
-			p.processInlineLink(child, inlineContent, parent)
-
 		case "text":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
@@ -256,37 +253,6 @@ func (p *AdfConverter) processCodeSpan(codeNode *sitter.Node, inlineContent []by
 	if codeText != "" {
 		codeMark := NewCodeMark()
 		textNode := NewTextNodeWithMarks(codeText, []ADFMark{codeMark})
-		parent.Content = append(parent.Content, *textNode)
-	}
-}
-
-// processInlineLink processes an inline link node
-func (p *AdfConverter) processInlineLink(linkNode *sitter.Node, inlineContent []byte, parent *ADFNode) {
-	var linkText string
-	var linkURL string
-
-	// Process children to find link text and URL
-	childCount := int(linkNode.ChildCount())
-	for i := range childCount {
-		child := linkNode.Child(uint(i))
-		switch child.Kind() {
-		case "link_text":
-			// Extract the text content (without the brackets)
-			linkText = string(inlineContent[child.StartByte():child.EndByte()])
-			// Remove surrounding brackets if present
-			linkText = strings.Trim(linkText, "[]")
-		case "link_destination":
-			// Extract the URL (without the parentheses)
-			linkURL = string(inlineContent[child.StartByte():child.EndByte()])
-			// Remove surrounding parentheses if present
-			linkURL = strings.Trim(linkURL, "()")
-		}
-	}
-
-	// Create ADF text node with link mark
-	if linkText != "" && linkURL != "" {
-		linkMark := NewLinkMark(linkURL)
-		textNode := NewTextNodeWithMarks(linkText, []ADFMark{linkMark})
 		parent.Content = append(parent.Content, *textNode)
 	}
 }
