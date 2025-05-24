@@ -11,16 +11,13 @@ type AdfConverter struct {
 	markdownParser *tree_sitter_markdown.AdfMarkdownParser
 }
 
-// NewAdfParser creates a parser using the clean bindings interface
-func NewAdfParser() *AdfConverter {
+func NewAdfConverter() *AdfConverter {
 	return &AdfConverter{
 		markdownParser: tree_sitter_markdown.NewAdfMarkdownParser(),
 	}
 }
 
-// ConvertToADF converts markdown to ADF using the clean interface
 func (p *AdfConverter) ConvertToADF(content []byte) (*ADFDocument, error) {
-	// Parse using the clean bindings interface
 	tree, err := p.markdownParser.Parse(content)
 	if err != nil {
 		return nil, err
@@ -139,6 +136,7 @@ func (p *AdfConverter) convertCodeBlock(node *sitter.Node, content []byte) *ADFN
 		case "code_fence_content":
 			// Extract code content
 			rawContent := string(content[child.StartByte():child.EndByte()])
+
 			// Remove any trailing closing fence (``` at the end)
 			if strings.HasSuffix(rawContent, "\n```") {
 				codeContent = strings.TrimSuffix(rawContent, "\n```")
@@ -150,37 +148,6 @@ func (p *AdfConverter) convertCodeBlock(node *sitter.Node, content []byte) *ADFN
 		}
 	}
 
-	// If we didn't find code_fence_content, try to extract manually
-	if codeContent == "" {
-		fullText := string(content[node.StartByte():node.EndByte()])
-		
-		// Simple approach: remove opening and closing fence markers
-		// Look for first newline after opening ```
-		firstNewline := strings.Index(fullText, "\n")
-		if firstNewline == -1 {
-			return NewCodeBlockNode(language)
-		}
-		
-		// Find the last occurrence of ``` 
-		lastFence := strings.LastIndex(fullText, "```")
-		if lastFence <= firstNewline {
-			return NewCodeBlockNode(language)
-		}
-		
-		// Extract content between first newline and last fence
-		startPos := firstNewline + 1
-		endPos := lastFence
-		
-		// If there's a newline right before the closing fence, exclude it
-		if endPos > 0 && fullText[endPos-1] == '\n' {
-			endPos--
-		}
-		
-		if startPos < endPos {
-			codeContent = fullText[startPos:endPos]
-		}
-	}
-
 	codeBlock := NewCodeBlockNode(language)
 	if codeContent != "" {
 		codeBlock.Content = append(codeBlock.Content, *NewTextNode(codeContent))
@@ -189,9 +156,7 @@ func (p *AdfConverter) convertCodeBlock(node *sitter.Node, content []byte) *ADFN
 	return codeBlock
 }
 
-// processInlineContent processes inline content using the clean interface
 func (p *AdfConverter) processInlineContent(inlineNode *sitter.Node, content []byte, parent *ADFNode) {
-	// Get the inline tree for this node using the clean bindings interface
 	inlineTree := p.markdownParser.GetInlineTree(inlineNode, content)
 	if inlineTree == nil {
 		// No inline tree, treat as plain text
@@ -271,7 +236,6 @@ func (p *AdfConverter) processCodeSpan(codeNode *sitter.Node, inlineContent []by
 	// Find the actual code content within the code span
 	// Code spans have structure: code_span -> code_span_delimiter + text + code_span_delimiter
 	var codeText string
-	
 	childCount := int(codeNode.ChildCount())
 	for i := range childCount {
 		child := codeNode.Child(uint(i))
@@ -280,14 +244,12 @@ func (p *AdfConverter) processCodeSpan(codeNode *sitter.Node, inlineContent []by
 			break
 		}
 	}
-	
 	// If we didn't find a text child, extract the whole content and strip backticks
 	if codeText == "" {
 		fullText := string(inlineContent[codeNode.StartByte():codeNode.EndByte()])
 		// Remove surrounding backticks
 		codeText = strings.Trim(fullText, "`")
 	}
-	
 	if codeText != "" {
 		codeMark := NewCodeMark()
 		textNode := NewTextNodeWithMarks(codeText, []ADFMark{codeMark})

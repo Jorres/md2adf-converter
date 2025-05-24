@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// Parse markdown and convert to ADF using clean interface
-	parser := adf.NewAdfParser()
+	parser := adf.NewAdfConverter()
 	adfDoc, err := parser.ConvertToADF(input)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing markdown: %v\n", err)
