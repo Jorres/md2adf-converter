@@ -1,6 +1,7 @@
 package adf
 
 import (
+	"fmt"
 	"strings"
 
 	tree_sitter_markdown "github.com/tree-sitter-grammars/tree-sitter-markdown/bindings/go"
@@ -57,6 +58,12 @@ func (p *AdfConverter) processNode(node *sitter.Node, content []byte, doc *ADFDo
 		codeBlock := p.convertCodeBlock(node, content)
 		if codeBlock != nil {
 			doc.Content = append(doc.Content, *codeBlock)
+		}
+
+	case "list":
+		list := p.convertList(node, content)
+		if list != nil {
+			doc.Content = append(doc.Content, *list)
 		}
 	}
 }
@@ -223,6 +230,9 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 		case "code_span":
 			p.processCodeSpan(child, inlineContent, parent)
 
+		case "inline_link":
+			p.processLink(child, inlineContent, parent)
+
 		case "text":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
@@ -273,4 +283,144 @@ func (p *AdfConverter) processCodeSpan(codeNode *sitter.Node, inlineContent []by
 		textNode := NewTextNodeWithMarks(codeText, []ADFMark{codeMark})
 		parent.Content = append(parent.Content, *textNode)
 	}
+}
+
+// processLink processes an inline_link node to create ADF link marks
+func (p *AdfConverter) processLink(linkNode *sitter.Node, inlineContent []byte, parent *ADFNode) {
+	var linkText string
+	var linkURL string
+
+	// Process children to find link text and URL
+	childCount := int(linkNode.ChildCount())
+	for i := range childCount {
+		child := linkNode.Child(uint(i))
+		switch child.Kind() {
+		case "link_text":
+			// Extract the text content from inside the brackets
+			linkText = string(inlineContent[child.StartByte():child.EndByte()])
+			// Remove the surrounding brackets
+			if strings.HasPrefix(linkText, "[") && strings.HasSuffix(linkText, "]") {
+				linkText = linkText[1 : len(linkText)-1]
+			}
+		case "link_destination":
+			// Extract the URL from inside the parentheses
+			linkURL = string(inlineContent[child.StartByte():child.EndByte()])
+			// Remove the surrounding parentheses
+			if strings.HasPrefix(linkURL, "(") && strings.HasSuffix(linkURL, ")") {
+				linkURL = linkURL[1 : len(linkURL)-1]
+			}
+		}
+	}
+
+	// Create text node with link mark
+	if linkText != "" && linkURL != "" {
+		linkMark := NewLinkMark(linkURL)
+		textNode := NewTextNodeWithMarks(linkText, []ADFMark{linkMark})
+		parent.Content = append(parent.Content, *textNode)
+	}
+}
+
+// convertList converts a list node to ADF
+func (p *AdfConverter) convertList(node *sitter.Node, content []byte) *ADFNode {
+	// Determine if this is an ordered or unordered list by checking the first list item's marker
+	var isOrdered bool
+	var startingOrder int = 1
+
+	childCount := int(node.ChildCount())
+	for i := range childCount {
+		child := node.Child(uint(i))
+		if child.Kind() == "list_item" {
+			// Check the list marker in the first list item
+			markerType := p.getListItemMarkerType(child, content)
+			if markerType == "ordered" {
+				isOrdered = true
+				startingOrder = p.extractOrderFromListItem(child, content)
+				break
+			} else if markerType == "unordered" {
+				isOrdered = false
+				break
+			}
+		}
+	}
+
+	// Create the appropriate list node
+	var listNode *ADFNode
+	if isOrdered {
+		listNode = NewOrderedListNode(startingOrder)
+	} else {
+		listNode = NewBulletListNode()
+	}
+
+	// Convert all list items
+	for i := range childCount {
+		child := node.Child(uint(i))
+		if child.Kind() == "list_item" {
+			listItem := p.convertListItem(child, content)
+			if listItem != nil {
+				listNode.Content = append(listNode.Content, *listItem)
+			}
+		}
+	}
+
+	return listNode
+}
+
+// convertListItem converts a list_item node to ADF
+func (p *AdfConverter) convertListItem(node *sitter.Node, content []byte) *ADFNode {
+	listItem := NewListItemNode()
+
+	childCount := int(node.ChildCount())
+	for i := range childCount {
+		child := node.Child(uint(i))
+		switch child.Kind() {
+		case "paragraph":
+			// Convert the paragraph content of the list item
+			paragraph := p.convertParagraph(child, content)
+			if paragraph != nil {
+				listItem.Content = append(listItem.Content, *paragraph)
+			}
+		case "list":
+			// Handle nested lists
+			nestedList := p.convertList(child, content)
+			if nestedList != nil {
+				listItem.Content = append(listItem.Content, *nestedList)
+			}
+		}
+		// Ignore list markers and other elements
+	}
+
+	return listItem
+}
+
+// getListItemMarkerType determines if a list item has an ordered or unordered marker
+func (p *AdfConverter) getListItemMarkerType(listItemNode *sitter.Node, content []byte) string {
+	childCount := int(listItemNode.ChildCount())
+	for i := range childCount {
+		child := listItemNode.Child(uint(i))
+		switch child.Kind() {
+		case "list_marker_dot":
+			return "ordered"
+		case "list_marker_minus", "list_marker_plus", "list_marker_star":
+			return "unordered"
+		}
+	}
+	return "unknown"
+}
+
+// extractOrderFromListItem extracts the starting number from an ordered list item
+func (p *AdfConverter) extractOrderFromListItem(listItemNode *sitter.Node, content []byte) int {
+	childCount := int(listItemNode.ChildCount())
+	for i := range childCount {
+		child := listItemNode.Child(uint(i))
+		if child.Kind() == "list_marker_dot" {
+			markerText := string(content[child.StartByte():child.EndByte()])
+			// Extract number from marker like "1. " or "42. "
+			numberStr := strings.TrimSuffix(strings.TrimSpace(markerText), ".")
+			var num int
+			if n, err := fmt.Sscanf(numberStr, "%d", &num); n == 1 && err == nil {
+				return num
+			}
+		}
+	}
+	return 1 // Default to 1 if we can't parse
 }

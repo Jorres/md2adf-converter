@@ -122,6 +122,36 @@ func NewCodeBlockNode(language string) *ADFNode {
 	}
 }
 
+// Create a bullet list node
+func NewBulletListNode() *ADFNode {
+	return &ADFNode{
+		Type:    "bulletList",
+		Content: []ADFNode{},
+	}
+}
+
+// Create an ordered list node
+func NewOrderedListNode(order int) *ADFNode {
+	attrs := make(map[string]any)
+	if order > 1 {
+		attrs["order"] = order
+	}
+	
+	return &ADFNode{
+		Type:    "orderedList",
+		Content: []ADFNode{},
+		Attrs:   attrs,
+	}
+}
+
+// Create a list item node
+func NewListItemNode() *ADFNode {
+	return &ADFNode{
+		Type:    "listItem",
+		Content: []ADFNode{},
+	}
+}
+
 // Convert to JSON
 func (doc *ADFDocument) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")
