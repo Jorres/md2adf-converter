@@ -29,7 +29,13 @@ func main() {
 
 	// Parse markdown and convert to ADF using clean interface
 	parser := adf.NewAdfConverter()
-	adfDoc, err := parser.ConvertToADF(input)
+	
+	// Sample user mapping for testing
+	userMapping := map[string]string{
+		"@jorres@nebius.com": "6acd447c-fd28-4da8-b7cb-5b95d4405540",
+	}
+	
+	adfDoc, err := parser.ConvertToADF(input, userMapping)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing markdown: %v\n", err)
 		os.Exit(1)

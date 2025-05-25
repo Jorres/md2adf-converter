@@ -97,6 +97,17 @@ func NewCodeMark() ADFMark {
 	}
 }
 
+// Create a mention node
+func NewMentionNode(userID, displayText string) *ADFNode {
+	return &ADFNode{
+		Type: "mention",
+		Attrs: map[string]any{
+			"id":   userID,
+			"text": displayText,
+		},
+	}
+}
+
 // Create a code block node
 func NewCodeBlockNode(language string) *ADFNode {
 	attrs := make(map[string]any)

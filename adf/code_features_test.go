@@ -9,7 +9,7 @@ func TestInlineCode(t *testing.T) {
 	converter := NewAdfConverter()
 
 	markdown := "This has `inline code` in it."
-	adf, err := converter.ConvertToADF([]byte(markdown))
+	adf, err := converter.ConvertToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestCodeBlockWithoutLanguage(t *testing.T) {
 	converter := NewAdfConverter()
 
 	markdown := "```\nfunction hello() {\n    console.log(\"Hello\");\n}\n```"
-	adf, err := converter.ConvertToADF([]byte(markdown))
+	adf, err := converter.ConvertToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestCodeBlockWithLanguage(t *testing.T) {
 	converter := NewAdfConverter()
 
 	markdown := "```go\npackage main\n\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```"
-	adf, err := converter.ConvertToADF([]byte(markdown))
+	adf, err := converter.ConvertToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -120,7 +120,7 @@ This paragraph has ` + "`inline code`" + ` in it.
 
 Another paragraph with ` + "`more code`" + `.`
 
-	adf, err := converter.ConvertToADF([]byte(markdown))
+	adf, err := converter.ConvertToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -180,26 +180,30 @@ func TestCodeWithPeopleMentions(t *testing.T) {
 	converter := NewAdfConverter()
 
 	markdown := "Contact `@jorres@nebius.com` or @admin@example.com for help."
-	adf, err := converter.ConvertToADF([]byte(markdown))
+	adf, err := converter.ConvertToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
 
 	paragraph := adf.Content[0]
 
-	// Should find both a code mark and a mention mark
+	// Should find both a code mark and a mention node
 	foundCodeMention := false
 	foundRegularMention := false
 
 	for _, node := range paragraph.Content {
+		// Code mention should be a text node with code mark
 		if node.Text == "@jorres@nebius.com" {
 			if len(node.Marks) == 1 && node.Marks[0].Type == "code" {
 				foundCodeMention = true
 			}
 		}
-		if node.Text == "@admin@example.com" {
-			if len(node.Marks) == 1 && node.Marks[0].Type == "mention" {
-				foundRegularMention = true
+		// Regular mention should be a standalone mention node
+		if node.Type == "mention" {
+			if id, ok := node.Attrs["id"].(string); ok && id == "@admin@example.com" {
+				if text, ok := node.Attrs["text"].(string); ok && text == "admin" {
+					foundRegularMention = true
+				}
 			}
 		}
 	}
@@ -259,7 +263,7 @@ func TestSingleLineInlineCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adf, err := converter.ConvertToADF([]byte(tt.markdown))
+			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
 			if err != nil {
 				t.Fatalf("Failed to convert markdown: %v", err)
 			}
@@ -317,7 +321,7 @@ func TestInlineCodeEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adf, err := converter.ConvertToADF([]byte(tt.markdown))
+			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
 			if err != nil {
 				t.Fatalf("Failed to convert markdown: %v", err)
 			}
@@ -396,7 +400,7 @@ func TestInlineCodeEdgeCases(t *testing.T) {
 
 // 	for _, tt := range tests {
 // 		t.Run(tt.name, func(t *testing.T) {
-// 			adf, err := converter.ConvertToADF([]byte(tt.markdown))
+// 			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
 // 			if err != nil {
 // 				t.Fatalf("Failed to convert markdown: %v", err)
 // 			}
@@ -471,7 +475,7 @@ func TestInlineCodeEdgeCases(t *testing.T) {
 
 // 	for _, tt := range tests {
 // 		t.Run(tt.name, func(t *testing.T) {
-// 			adf, err := converter.ConvertToADF([]byte(tt.markdown))
+// 			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
 // 			if err != nil {
 // 				t.Fatalf("Failed to convert markdown: %v", err)
 // 			}
@@ -505,7 +509,7 @@ func TestValidADFOutput(t *testing.T) {
 	converter := NewAdfConverter()
 
 	markdown := "# Test\n\n`code` and @user@example.com\n\n```go\nfmt.Println(\"test\")\n```"
-	adf, err := converter.ConvertToADF([]byte(markdown))
+	adf, err := converter.ConvertToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}

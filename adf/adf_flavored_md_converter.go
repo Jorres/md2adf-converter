@@ -9,15 +9,19 @@ import (
 
 type AdfConverter struct {
 	markdownParser *tree_sitter_markdown.AdfMarkdownParser
+	userMapping    map[string]string // email -> user ID
 }
 
 func NewAdfConverter() *AdfConverter {
 	return &AdfConverter{
 		markdownParser: tree_sitter_markdown.NewAdfMarkdownParser(),
+		userMapping:    make(map[string]string),
 	}
 }
 
-func (p *AdfConverter) ConvertToADF(content []byte) (*ADFDocument, error) {
+func (p *AdfConverter) ConvertToADF(content []byte, userMapping map[string]string) (*ADFDocument, error) {
+	p.userMapping = userMapping
+
 	tree, err := p.markdownParser.Parse(content)
 	if err != nil {
 		return nil, err
@@ -197,10 +201,24 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 		case "people_mention":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			email := strings.TrimSpace(text)
-
-			mentionMark := NewPeopleMentionMark(email)
-			textNode := NewTextNodeWithMarks(email, []ADFMark{mentionMark})
-			parent.Content = append(parent.Content, *textNode)
+			
+			// Look up user ID from mapping
+			userID := email // fallback to email if not found
+			if id, exists := p.userMapping[email]; exists {
+				userID = id
+			}
+			
+			// Strip company domain from display text and the @ prefix
+			displayText := email
+			if strings.HasPrefix(displayText, "@") {
+				displayText = displayText[1:] // Remove @ prefix
+			}
+			if atIndex := strings.Index(displayText, "@"); atIndex != -1 {
+				displayText = displayText[:atIndex] // Remove domain part
+			}
+			
+			mentionNode := NewMentionNode(userID, displayText)
+			parent.Content = append(parent.Content, *mentionNode)
 
 		case "code_span":
 			p.processCodeSpan(child, inlineContent, parent)
