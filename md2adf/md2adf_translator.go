@@ -1,26 +1,27 @@
-package adf
+package md2adf
 
 import (
 	"fmt"
+	"md-adf-exp/adf"
 	"strings"
 
 	tree_sitter_markdown "github.com/tree-sitter-grammars/tree-sitter-markdown/bindings/go"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-type AdfConverter struct {
+type Translator struct {
 	markdownParser *tree_sitter_markdown.AdfMarkdownParser
 	userMapping    map[string]string // email -> user ID
 }
 
-func NewAdfConverter() *AdfConverter {
-	return &AdfConverter{
+func NewTranslator() *Translator {
+	return &Translator{
 		markdownParser: tree_sitter_markdown.NewAdfMarkdownParser(),
 		userMapping:    make(map[string]string),
 	}
 }
 
-func (p *AdfConverter) ConvertToADF(content []byte, userMapping map[string]string) (*ADFDocument, error) {
+func (p *Translator) TranslateToADF(content []byte, userMapping map[string]string) (*adf.ADFDocument, error) {
 	p.userMapping = userMapping
 
 	tree, err := p.markdownParser.Parse(content)
@@ -28,13 +29,13 @@ func (p *AdfConverter) ConvertToADF(content []byte, userMapping map[string]strin
 		return nil, err
 	}
 
-	doc := NewADFDocument()
+	doc := adf.NewADFDocument()
 	p.processNode(tree.RootNode(), content, doc)
 	return doc, nil
 }
 
 // processNode processes a tree-sitter node and converts it to ADF
-func (p *AdfConverter) processNode(node *sitter.Node, content []byte, doc *ADFDocument) {
+func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADFDocument) {
 	nodeType := node.Kind()
 
 	switch nodeType {
@@ -69,7 +70,7 @@ func (p *AdfConverter) processNode(node *sitter.Node, content []byte, doc *ADFDo
 }
 
 // processChildren processes all children of a node
-func (p *AdfConverter) processChildren(node *sitter.Node, content []byte, doc *ADFDocument) {
+func (p *Translator) processChildren(node *sitter.Node, content []byte, doc *adf.ADFDocument) {
 	childCount := int(node.ChildCount())
 	for i := range childCount {
 		child := node.Child(uint(i))
@@ -80,7 +81,7 @@ func (p *AdfConverter) processChildren(node *sitter.Node, content []byte, doc *A
 }
 
 // convertHeading converts a heading node to ADF
-func (p *AdfConverter) convertHeading(node *sitter.Node, content []byte) *ADFNode {
+func (p *Translator) convertHeading(node *sitter.Node, content []byte) *adf.ADFNode {
 	level := 1
 	var inlineNode *sitter.Node
 
@@ -106,7 +107,7 @@ func (p *AdfConverter) convertHeading(node *sitter.Node, content []byte) *ADFNod
 		}
 	}
 
-	heading := NewHeadingNode(level)
+	heading := adf.NewHeadingNode(level)
 	if inlineNode != nil {
 		p.processInlineContent(inlineNode, content, heading)
 	}
@@ -115,8 +116,8 @@ func (p *AdfConverter) convertHeading(node *sitter.Node, content []byte) *ADFNod
 }
 
 // convertParagraph converts a paragraph node to ADF
-func (p *AdfConverter) convertParagraph(node *sitter.Node, content []byte) *ADFNode {
-	paragraph := NewParagraphNode()
+func (p *Translator) convertParagraph(node *sitter.Node, content []byte) *adf.ADFNode {
+	paragraph := adf.NewParagraphNode()
 
 	// Find inline content
 	childCount := int(node.ChildCount())
@@ -131,7 +132,7 @@ func (p *AdfConverter) convertParagraph(node *sitter.Node, content []byte) *ADFN
 }
 
 // convertCodeBlock converts a fenced code block to ADF
-func (p *AdfConverter) convertCodeBlock(node *sitter.Node, content []byte) *ADFNode {
+func (p *Translator) convertCodeBlock(node *sitter.Node, content []byte) *adf.ADFNode {
 	var language string
 	var codeContent string
 
@@ -159,21 +160,21 @@ func (p *AdfConverter) convertCodeBlock(node *sitter.Node, content []byte) *ADFN
 		}
 	}
 
-	codeBlock := NewCodeBlockNode(language)
+	codeBlock := adf.NewCodeBlockNode(language)
 	if codeContent != "" {
-		codeBlock.Content = append(codeBlock.Content, *NewTextNode(codeContent))
+		codeBlock.Content = append(codeBlock.Content, *adf.NewTextNode(codeContent))
 	}
 
 	return codeBlock
 }
 
-func (p *AdfConverter) processInlineContent(inlineNode *sitter.Node, content []byte, parent *ADFNode) {
+func (p *Translator) processInlineContent(inlineNode *sitter.Node, content []byte, parent *adf.ADFNode) {
 	inlineTree := p.markdownParser.GetInlineTree(inlineNode, content)
 	if inlineTree == nil {
 		// No inline tree, treat as plain text
 		text := string(content[inlineNode.StartByte():inlineNode.EndByte()])
 		if strings.TrimSpace(text) != "" {
-			parent.Content = append(parent.Content, *NewTextNode(text))
+			parent.Content = append(parent.Content, *adf.NewTextNode(text))
 		}
 		return
 	}
@@ -186,7 +187,7 @@ func (p *AdfConverter) processInlineContent(inlineNode *sitter.Node, content []b
 }
 
 // processInlineTreeWithGaps processes inline tree nodes and fills text gaps
-func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineContent []byte, parent *ADFNode) {
+func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineContent []byte, parent *adf.ADFNode) {
 	// Track position for gap filling
 	currentPos := uint(0)
 
@@ -199,7 +200,7 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 		if child.StartByte() > currentPos {
 			gapText := string(inlineContent[currentPos:child.StartByte()])
 			if strings.TrimSpace(gapText) != "" {
-				parent.Content = append(parent.Content, *NewTextNode(gapText))
+				parent.Content = append(parent.Content, *adf.NewTextNode(gapText))
 			}
 		}
 
@@ -208,13 +209,13 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 		case "people_mention":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			email := strings.TrimSpace(text)
-			
+
 			// Look up user ID from mapping
 			userID := email // fallback to email if not found
 			if id, exists := p.userMapping[email]; exists {
 				userID = id
 			}
-			
+
 			// Strip company domain from display text and the @ prefix
 			displayText := email
 			if strings.HasPrefix(displayText, "@") {
@@ -223,8 +224,8 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 			if atIndex := strings.Index(displayText, "@"); atIndex != -1 {
 				displayText = displayText[:atIndex] // Remove domain part
 			}
-			
-			mentionNode := NewMentionNode(userID, displayText)
+
+			mentionNode := adf.NewMentionNode(userID, displayText)
 			parent.Content = append(parent.Content, *mentionNode)
 
 		case "code_span":
@@ -236,14 +237,14 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 		case "text":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
-				parent.Content = append(parent.Content, *NewTextNode(text))
+				parent.Content = append(parent.Content, *adf.NewTextNode(text))
 			}
 
 		default:
 			// For other elements (punctuation, etc.), include as plain text
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
-				parent.Content = append(parent.Content, *NewTextNode(text))
+				parent.Content = append(parent.Content, *adf.NewTextNode(text))
 			}
 		}
 
@@ -254,13 +255,13 @@ func (p *AdfConverter) processInlineTreeWithGaps(inlineRoot *sitter.Node, inline
 	if currentPos < uint(len(inlineContent)) {
 		remainingText := string(inlineContent[currentPos:])
 		if strings.TrimSpace(remainingText) != "" {
-			parent.Content = append(parent.Content, *NewTextNode(remainingText))
+			parent.Content = append(parent.Content, *adf.NewTextNode(remainingText))
 		}
 	}
 }
 
 // processCodeSpan processes a code span node (inline code)
-func (p *AdfConverter) processCodeSpan(codeNode *sitter.Node, inlineContent []byte, parent *ADFNode) {
+func (p *Translator) processCodeSpan(codeNode *sitter.Node, inlineContent []byte, parent *adf.ADFNode) {
 	// Find the actual code content within the code span
 	// Code spans have structure: code_span -> code_span_delimiter + text + code_span_delimiter
 	var codeText string
@@ -279,14 +280,14 @@ func (p *AdfConverter) processCodeSpan(codeNode *sitter.Node, inlineContent []by
 		codeText = strings.Trim(fullText, "`")
 	}
 	if codeText != "" {
-		codeMark := NewCodeMark()
-		textNode := NewTextNodeWithMarks(codeText, []ADFMark{codeMark})
+		codeMark := adf.NewCodeMark()
+		textNode := adf.NewTextNodeWithMarks(codeText, []adf.ADFMark{codeMark})
 		parent.Content = append(parent.Content, *textNode)
 	}
 }
 
 // processLink processes an inline_link node to create ADF link marks
-func (p *AdfConverter) processLink(linkNode *sitter.Node, inlineContent []byte, parent *ADFNode) {
+func (p *Translator) processLink(linkNode *sitter.Node, inlineContent []byte, parent *adf.ADFNode) {
 	var linkText string
 	var linkURL string
 
@@ -314,14 +315,14 @@ func (p *AdfConverter) processLink(linkNode *sitter.Node, inlineContent []byte, 
 
 	// Create text node with link mark
 	if linkText != "" && linkURL != "" {
-		linkMark := NewLinkMark(linkURL)
-		textNode := NewTextNodeWithMarks(linkText, []ADFMark{linkMark})
+		linkMark := adf.NewLinkMark(linkURL)
+		textNode := adf.NewTextNodeWithMarks(linkText, []adf.ADFMark{linkMark})
 		parent.Content = append(parent.Content, *textNode)
 	}
 }
 
 // convertList converts a list node to ADF
-func (p *AdfConverter) convertList(node *sitter.Node, content []byte) *ADFNode {
+func (p *Translator) convertList(node *sitter.Node, content []byte) *adf.ADFNode {
 	// Determine if this is an ordered or unordered list by checking the first list item's marker
 	var isOrdered bool
 	var startingOrder int = 1
@@ -344,11 +345,11 @@ func (p *AdfConverter) convertList(node *sitter.Node, content []byte) *ADFNode {
 	}
 
 	// Create the appropriate list node
-	var listNode *ADFNode
+	var listNode *adf.ADFNode
 	if isOrdered {
-		listNode = NewOrderedListNode(startingOrder)
+		listNode = adf.NewOrderedListNode(startingOrder)
 	} else {
-		listNode = NewBulletListNode()
+		listNode = adf.NewBulletListNode()
 	}
 
 	// Convert all list items
@@ -366,8 +367,8 @@ func (p *AdfConverter) convertList(node *sitter.Node, content []byte) *ADFNode {
 }
 
 // convertListItem converts a list_item node to ADF
-func (p *AdfConverter) convertListItem(node *sitter.Node, content []byte) *ADFNode {
-	listItem := NewListItemNode()
+func (p *Translator) convertListItem(node *sitter.Node, content []byte) *adf.ADFNode {
+	listItem := adf.NewListItemNode()
 
 	childCount := int(node.ChildCount())
 	for i := range childCount {
@@ -393,7 +394,7 @@ func (p *AdfConverter) convertListItem(node *sitter.Node, content []byte) *ADFNo
 }
 
 // getListItemMarkerType determines if a list item has an ordered or unordered marker
-func (p *AdfConverter) getListItemMarkerType(listItemNode *sitter.Node, content []byte) string {
+func (p *Translator) getListItemMarkerType(listItemNode *sitter.Node, content []byte) string {
 	childCount := int(listItemNode.ChildCount())
 	for i := range childCount {
 		child := listItemNode.Child(uint(i))
@@ -408,7 +409,7 @@ func (p *AdfConverter) getListItemMarkerType(listItemNode *sitter.Node, content 
 }
 
 // extractOrderFromListItem extracts the starting number from an ordered list item
-func (p *AdfConverter) extractOrderFromListItem(listItemNode *sitter.Node, content []byte) int {
+func (p *Translator) extractOrderFromListItem(listItemNode *sitter.Node, content []byte) int {
 	childCount := int(listItemNode.ChildCount())
 	for i := range childCount {
 		child := listItemNode.Child(uint(i))

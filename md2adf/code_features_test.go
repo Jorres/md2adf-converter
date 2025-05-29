@@ -1,17 +1,18 @@
-package adf
+package md2adf
 
 import (
 	"encoding/json"
+	"md-adf-exp/adf"
 	"testing"
 )
 
 func TestInlineCode(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	markdown := "This has `inline code` in it."
-	adf, err := converter.ConvertToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
-		t.Fatalf("Failed to convert markdown: %v", err)
+		t.Fatalf("Failed to translate markdown: %v", err)
 	}
 
 	// Should have one paragraph
@@ -42,12 +43,12 @@ func TestInlineCode(t *testing.T) {
 }
 
 func TestCodeBlockWithoutLanguage(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	markdown := "```\nfunction hello() {\n    console.log(\"Hello\");\n}\n```"
-	adf, err := converter.ConvertToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
-		t.Fatalf("Failed to convert markdown: %v", err)
+		t.Fatalf("Failed to translate markdown: %v", err)
 	}
 
 	// Should have one code block
@@ -78,12 +79,12 @@ func TestCodeBlockWithoutLanguage(t *testing.T) {
 }
 
 func TestCodeBlockWithLanguage(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	markdown := "```go\npackage main\n\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```"
-	adf, err := converter.ConvertToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
-		t.Fatalf("Failed to convert markdown: %v", err)
+		t.Fatalf("Failed to translate markdown: %v", err)
 	}
 
 	// Should have one code block
@@ -110,7 +111,7 @@ func TestCodeBlockWithLanguage(t *testing.T) {
 }
 
 func TestMixedCodeContent(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	markdown := `# Code Features
 
@@ -120,9 +121,9 @@ This paragraph has ` + "`inline code`" + ` in it.
 
 Another paragraph with ` + "`more code`" + `.`
 
-	adf, err := converter.ConvertToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
-		t.Fatalf("Failed to convert markdown: %v", err)
+		t.Fatalf("Failed to translate markdown: %v", err)
 	}
 
 	// Should have: heading, paragraph, code block, paragraph
@@ -177,12 +178,12 @@ Another paragraph with ` + "`more code`" + `.`
 }
 
 func TestCodeWithPeopleMentions(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	markdown := "Contact `@jorres@nebius.com` or @admin@example.com for help."
-	adf, err := converter.ConvertToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
-		t.Fatalf("Failed to convert markdown: %v", err)
+		t.Fatalf("Failed to translate markdown: %v", err)
 	}
 
 	paragraph := adf.Content[0]
@@ -217,7 +218,7 @@ func TestCodeWithPeopleMentions(t *testing.T) {
 }
 
 func TestSingleLineInlineCode(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	tests := []struct {
 		name     string
@@ -263,9 +264,9 @@ func TestSingleLineInlineCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
+			adf, err := translator.TranslateToADF([]byte(tt.markdown), nil)
 			if err != nil {
-				t.Fatalf("Failed to convert markdown: %v", err)
+				t.Fatalf("Failed to translate markdown: %v", err)
 			}
 
 			// Should have one paragraph
@@ -295,7 +296,7 @@ func TestSingleLineInlineCode(t *testing.T) {
 }
 
 func TestInlineCodeEdgeCases(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	tests := []struct {
 		name     string
@@ -321,9 +322,9 @@ func TestInlineCodeEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
+			adf, err := translator.TranslateToADF([]byte(tt.markdown), nil)
 			if err != nil {
-				t.Fatalf("Failed to convert markdown: %v", err)
+				t.Fatalf("Failed to translate markdown: %v", err)
 			}
 
 			paragraph := adf.Content[0]
@@ -351,177 +352,23 @@ func TestInlineCodeEdgeCases(t *testing.T) {
 	}
 }
 
-// func TestMarkdownLinks(t *testing.T) {
-// 	converter := NewAdfConverter()
-
-// 	tests := []struct {
-// 		name         string
-// 		markdown     string
-// 		expectedText string
-// 		expectedURL  string
-// 	}{
-// 		{
-// 			name:         "Simple link",
-// 			markdown:     "[Google](https://google.com)",
-// 			expectedText: "Google",
-// 			expectedURL:  "https://google.com",
-// 		},
-// 		{
-// 			name:         "Link with text context",
-// 			markdown:     "Visit [Google](https://google.com) for search",
-// 			expectedText: "Google",
-// 			expectedURL:  "https://google.com",
-// 		},
-// 		{
-// 			name:         "Link at beginning",
-// 			markdown:     "[Click here](https://example.com) to continue",
-// 			expectedText: "Click here",
-// 			expectedURL:  "https://example.com",
-// 		},
-// 		{
-// 			name:         "Link at end",
-// 			markdown:     "Go to [this page](https://example.com)",
-// 			expectedText: "this page",
-// 			expectedURL:  "https://example.com",
-// 		},
-// 		{
-// 			name:         "Multiple links",
-// 			markdown:     "Check [Google](https://google.com) and [GitHub](https://github.com)",
-// 			expectedText: "Google",
-// 			expectedURL:  "https://google.com",
-// 		},
-// 		{
-// 			name:         "Link with special characters",
-// 			markdown:     "[API docs](https://api.example.com/v1/docs?format=json)",
-// 			expectedText: "API docs",
-// 			expectedURL:  "https://api.example.com/v1/docs?format=json",
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
-// 			if err != nil {
-// 				t.Fatalf("Failed to convert markdown: %v", err)
-// 			}
-
-// 			// Should have one paragraph
-// 			if len(adf.Content) != 1 {
-// 				t.Fatalf("Expected 1 content node, got %d", len(adf.Content))
-// 			}
-
-// 			paragraph := adf.Content[0]
-// 			if paragraph.Type != "paragraph" {
-// 				t.Fatalf("Expected paragraph, got %s", paragraph.Type)
-// 			}
-
-// 			// Find the link text node
-// 			foundLink := false
-// 			for _, node := range paragraph.Content {
-// 				if node.Text == tt.expectedText && len(node.Marks) == 1 && node.Marks[0].Type == "link" {
-// 					if href, ok := node.Marks[0].Attrs["href"].(string); ok && href == tt.expectedURL {
-// 						foundLink = true
-// 						break
-// 					}
-// 				}
-// 			}
-
-// 			if !foundLink {
-// 				t.Fatalf("Could not find link text '%s' with URL '%s' in: %+v", tt.expectedText, tt.expectedURL, paragraph.Content)
-// 			}
-// 		})
-// 	}
-// }
-
-// func TestMarkdownLinksEdgeCases(t *testing.T) {
-// 	converter := NewAdfConverter()
-
-// 	tests := []struct {
-// 		name     string
-// 		markdown string
-// 		hasLink  bool
-// 	}{
-// 		{
-// 			name:     "Malformed link - missing closing bracket",
-// 			markdown: "[Google(https://google.com)",
-// 			hasLink:  false,
-// 		},
-// 		{
-// 			name:     "Malformed link - missing closing paren",
-// 			markdown: "[Google](https://google.com",
-// 			hasLink:  false,
-// 		},
-// 		{
-// 			name:     "Empty link text",
-// 			markdown: "[](https://google.com)",
-// 			hasLink:  false, // Empty text shouldn't create a link
-// 		},
-// 		{
-// 			name:     "Empty URL",
-// 			markdown: "[Google]()",
-// 			hasLink:  false, // Empty URL shouldn't create a link
-// 		},
-// 		{
-// 			name:     "Just brackets",
-// 			markdown: "[not a link]",
-// 			hasLink:  false,
-// 		},
-// 		{
-// 			name:     "Nested brackets",
-// 			markdown: "[Link with [nested] text](https://example.com)",
-// 			hasLink:  true,
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			adf, err := converter.ConvertToADF([]byte(tt.markdown), nil)
-// 			if err != nil {
-// 				t.Fatalf("Failed to convert markdown: %v", err)
-// 			}
-
-// 			paragraph := adf.Content[0]
-// 			foundLink := false
-
-// 			for _, node := range paragraph.Content {
-// 				if len(node.Marks) > 0 {
-// 					for _, mark := range node.Marks {
-// 						if mark.Type == "link" {
-// 							foundLink = true
-// 							break
-// 						}
-// 					}
-// 				}
-// 			}
-
-// 			if foundLink != tt.hasLink {
-// 				if tt.hasLink {
-// 					t.Fatalf("Expected to find link mark but didn't in: %+v", paragraph.Content)
-// 				} else {
-// 					t.Fatalf("Found unexpected link mark in: %+v", paragraph.Content)
-// 				}
-// 			}
-// 		})
-// 	}
-// }
-
 func TestValidADFOutput(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 
 	markdown := "# Test\n\n`code` and @user@example.com\n\n```go\nfmt.Println(\"test\")\n```"
-	adf, err := converter.ConvertToADF([]byte(markdown), nil)
+	translated, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
-		t.Fatalf("Failed to convert markdown: %v", err)
+		t.Fatalf("Failed to translate markdown: %v", err)
 	}
 
 	// Test that the ADF can be marshaled to valid JSON
-	jsonBytes, err := json.Marshal(adf)
+	jsonBytes, err := json.Marshal(translated)
 	if err != nil {
 		t.Fatalf("Failed to marshal ADF to JSON: %v", err)
 	}
 
 	// Test that it can be unmarshaled back
-	var unmarshaled ADFDocument
+	var unmarshaled adf.ADFDocument
 	err = json.Unmarshal(jsonBytes, &unmarshaled)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal ADF JSON: %v", err)

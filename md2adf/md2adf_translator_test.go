@@ -1,4 +1,4 @@
-package adf
+package md2adf
 
 import (
 	"testing"

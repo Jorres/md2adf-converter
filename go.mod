@@ -5,10 +5,16 @@ go 1.23
 toolchain go1.23.9
 
 require (
+	github.com/stretchr/testify v1.10.0
 	github.com/tree-sitter-grammars/tree-sitter-markdown v0.5.0
 	github.com/tree-sitter/go-tree-sitter v0.25.0
 )
 
-require github.com/mattn/go-pointer v0.0.1 // indirect
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
 
 replace github.com/tree-sitter-grammars/tree-sitter-markdown => ./tree-sitter-markdown

@@ -1,18 +1,18 @@
-package adf
+package md2adf
 
 import (
 	"testing"
 )
 
 func TestOrderedList(t *testing.T) {
-	converter := NewAdfConverter()
+	converter := NewTranslator()
 	markdown := `# Heading
 
 1. first item
 2. second item with code
 3. third item`
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -51,14 +51,14 @@ func TestOrderedList(t *testing.T) {
 }
 
 func TestUnorderedList(t *testing.T) {
-	converter := NewAdfConverter()
+	converter := NewTranslator()
 	markdown := `# Heading
 
 - first bullet
 - second bullet  
 - third bullet`
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -86,11 +86,11 @@ func TestUnorderedList(t *testing.T) {
 }
 
 func TestListWithInlineCode(t *testing.T) {
-	converter := NewAdfConverter()
-	markdown := `1. first `+"`element`"+` with a codeblock
+	converter := NewTranslator()
+	markdown := `1. first ` + "`element`" + ` with a codeblock
 2. second element`
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestListWithInlineCode(t *testing.T) {
 
 	firstItem := orderedList.Content[0]
 	firstParagraph := firstItem.Content[0]
-	
+
 	// Should have text + code + text
 	if len(firstParagraph.Content) < 3 {
 		t.Errorf("Expected at least 3 text nodes in first paragraph, got %d", len(firstParagraph.Content))
@@ -123,11 +123,11 @@ func TestListWithInlineCode(t *testing.T) {
 }
 
 func TestOrderedListStartingNumber(t *testing.T) {
-	converter := NewAdfConverter()
+	converter := NewTranslator()
 	markdown := `5. fifth item
 6. sixth item`
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}

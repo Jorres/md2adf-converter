@@ -1,15 +1,62 @@
 package adf
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
-// ADF document structure
+// NodeType is an Atlassian document node type.
+type NodeType string
+
+// Node types.
+const (
+	NodeTypeParent  = NodeType("parent")
+	NodeTypeChild   = NodeType("child")
+	NodeTypeUnknown = NodeType("unknown")
+
+	NodeBlockquote  = NodeType("blockquote")
+	NodeBulletList  = NodeType("bulletList")
+	NodeCodeBlock   = NodeType("codeBlock")
+	NodeHeading     = NodeType("heading")
+	NodeOrderedList = NodeType("orderedList")
+	NodePanel       = NodeType("panel")
+	NodeParagraph   = NodeType("paragraph")
+	NodeTable       = NodeType("table")
+	NodeMedia       = NodeType("media")
+
+	ChildNodeText        = NodeType("text")
+	ChildNodeListItem    = NodeType("listItem")
+	ChildNodeTableRow    = NodeType("tableRow")
+	ChildNodeTableHeader = NodeType("tableHeader")
+	ChildNodeTableCell   = NodeType("tableCell")
+
+	InlineNodeCard      = NodeType("inlineCard")
+	InlineNodeEmoji     = NodeType("emoji")
+	InlineNodeMention   = NodeType("mention")
+	InlineNodeHardBreak = NodeType("hardBreak")
+
+	MarkEm     = NodeType("em")
+	MarkLink   = NodeType("link")
+	MarkCode   = NodeType("code")
+	MarkStrike = NodeType("strike")
+	MarkStrong = NodeType("strong")
+)
+
+// ADF document structure (primary interface)
 type ADFDocument struct {
 	Version int       `json:"version"`
 	Type    string    `json:"type"`
 	Content []ADFNode `json:"content"`
 }
 
-// Generic ADF node
+// ADF is an Atlassian document format object (legacy interface).
+type ADF struct {
+	Version int     `json:"version"`
+	DocType string  `json:"type"`
+	Content []*Node `json:"content"`
+}
+
+// Generic ADF node (primary interface)
 type ADFNode struct {
 	Type    string         `json:"type"`
 	Content []ADFNode      `json:"content,omitempty"`
@@ -18,10 +65,119 @@ type ADFNode struct {
 	Attrs   map[string]any `json:"attrs,omitempty"`
 }
 
-// ADF mark for formatting
+// Node is an ADF content node (legacy interface).
+type Node struct {
+	NodeType   NodeType    `json:"type"`
+	Content    []*Node     `json:"content,omitempty"`
+	Attributes interface{} `json:"attrs,omitempty"`
+	NodeValue
+}
+
+// ADF mark for formatting (primary interface)
 type ADFMark struct {
 	Type  string         `json:"type"`
 	Attrs map[string]any `json:"attrs,omitempty"`
+}
+
+// MarkNode is a mark node type (legacy interface).
+type MarkNode struct {
+	MarkType   NodeType    `json:"type,omitempty"`
+	Attributes interface{} `json:"attrs,omitempty"`
+}
+
+// NodeValue is an actual ADF node content.
+type NodeValue struct {
+	Text  string     `json:"text,omitempty"`
+	Marks []MarkNode `json:"marks,omitempty"`
+}
+
+// ReplaceAll replaces all occurrences of an old string
+// in a text node with a new one.
+func (a *ADF) ReplaceAll(old, new string) {
+	if a == nil || len(a.Content) == 0 {
+		return
+	}
+	for _, parent := range a.Content {
+		a.replace(parent, old, new)
+	}
+}
+
+func (a *ADF) replace(n *Node, old, new string) {
+	for _, child := range n.Content {
+		a.replace(child, old, new)
+	}
+	if n.NodeType == ChildNodeText {
+		n.Text = strings.ReplaceAll(n.Text, old, new)
+	}
+}
+
+// GetType gets node type.
+func (n Node) GetType() NodeType { return n.NodeType }
+
+// GetAttributes gets node attributes.
+func (n Node) GetAttributes() interface{} { return n.Attributes }
+
+// GetType gets node type.
+func (n MarkNode) GetType() NodeType { return n.MarkType }
+
+// GetAttributes gets node attributes.
+func (n MarkNode) GetAttributes() interface{} { return n.Attributes }
+
+// ParentNodes returns supported ADF parent nodes.
+func ParentNodes() []NodeType {
+	return []NodeType{
+		NodeBlockquote,
+		NodeBulletList,
+		NodeCodeBlock,
+		NodeHeading,
+		NodeOrderedList,
+		NodePanel,
+		NodeParagraph,
+		NodeTable,
+		NodeMedia,
+	}
+}
+
+// ChildNodes returns supported ADF child nodes.
+func ChildNodes() []NodeType {
+	return []NodeType{
+		ChildNodeText,
+		ChildNodeListItem,
+		ChildNodeTableRow,
+		ChildNodeTableHeader,
+		ChildNodeTableCell,
+	}
+}
+
+// IsParentNode checks if the node is a parent node.
+func IsParentNode(identifier NodeType) bool {
+	for _, n := range ParentNodes() {
+		if n == identifier {
+			return true
+		}
+	}
+	return false
+}
+
+// IsChildNode checks if the node is a child node.
+func IsChildNode(identifier NodeType) bool {
+	for _, n := range ChildNodes() {
+		if n == identifier {
+			return true
+		}
+	}
+	return false
+}
+
+// GetADFNodeType returns the type of ADF node.
+func GetADFNodeType(identifier NodeType) NodeType {
+	if IsParentNode(identifier) {
+		return NodeTypeParent
+	}
+	if IsChildNode(identifier) {
+		return NodeTypeChild
+	}
+	return NodeTypeUnknown
 }
 
 // Create a new ADF document
@@ -114,7 +270,7 @@ func NewCodeBlockNode(language string) *ADFNode {
 	if language != "" {
 		attrs["language"] = language
 	}
-	
+
 	return &ADFNode{
 		Type:    "codeBlock",
 		Content: []ADFNode{},
@@ -136,7 +292,7 @@ func NewOrderedListNode(order int) *ADFNode {
 	if order > 1 {
 		attrs["order"] = order
 	}
-	
+
 	return &ADFNode{
 		Type:    "orderedList",
 		Content: []ADFNode{},

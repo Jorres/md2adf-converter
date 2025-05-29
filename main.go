@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"md-adf-exp/adf"
+	"md-adf-exp/md2adf"
 	"os"
 )
 
@@ -11,7 +11,6 @@ func main() {
 	var input []byte
 	var err error
 
-	// Read from stdin or file argument
 	if len(os.Args) > 1 {
 		filename := os.Args[1]
 		input, err = os.ReadFile(filename)
@@ -27,15 +26,14 @@ func main() {
 		}
 	}
 
-	// Parse markdown and convert to ADF using clean interface
-	parser := adf.NewAdfConverter()
-	
+	translator := md2adf.NewTranslator()
+
 	// Sample user mapping for testing
 	userMapping := map[string]string{
 		"@jorres@nebius.com": "6acd447c-fd28-4da8-b7cb-5b95d4405540",
 	}
-	
-	adfDoc, err := parser.ConvertToADF(input, userMapping)
+
+	adfDoc, err := translator.TranslateToADF(input, userMapping)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing markdown: %v\n", err)
 		os.Exit(1)

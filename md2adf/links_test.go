@@ -1,14 +1,14 @@
-package adf
+package md2adf
 
 import (
 	"testing"
 )
 
 func TestSimpleInlineLink(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 	markdown := "[link](https://example.com)"
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestSimpleInlineLink(t *testing.T) {
 	if len(textNode.Marks) != 1 {
 		t.Fatalf("Expected 1 mark, got %d", len(textNode.Marks))
 	}
-	
+
 	linkMark := textNode.Marks[0]
 	if linkMark.Type != "link" {
 		t.Errorf("Expected link mark, got %s", linkMark.Type)
@@ -51,10 +51,10 @@ func TestSimpleInlineLink(t *testing.T) {
 }
 
 func TestLinkInListItem(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 	markdown := "1. Item with [link](https://test.com)"
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -97,16 +97,16 @@ func TestLinkInListItem(t *testing.T) {
 }
 
 func TestMultipleLinksInParagraph(t *testing.T) {
-	converter := NewAdfConverter()
+	translator := NewTranslator()
 	markdown := "Check [Google](https://google.com) and [GitHub](https://github.com) for more info."
 
-	doc, err := converter.ConvertToADF([]byte(markdown), nil)
+	doc, err := translator.TranslateToADF([]byte(markdown), nil)
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
 
 	paragraph := doc.Content[0]
-	
+
 	// Should have 6 text nodes: "Check ", "Google" (with mark), " and ", "GitHub" (with mark), " for more info", "."
 	if len(paragraph.Content) != 6 {
 		t.Fatalf("Expected 6 text nodes, got %d", len(paragraph.Content))
