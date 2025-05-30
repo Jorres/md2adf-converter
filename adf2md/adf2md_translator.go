@@ -93,7 +93,6 @@ func (a *Translator) visit(n *adf.Node, depth int) {
 }
 
 func sanitize(s string) string {
-	s = strings.TrimSpace(s)
 	s = strings.TrimRight(s, "\n")
 	s = strings.ReplaceAll(s, "<", "❬")
 	s = strings.ReplaceAll(s, ">", "❭")
@@ -216,13 +215,13 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 		case adf.ChildNodeListItem:
 			if tr.list.ol[tr.list.depthO] {
 				for i := 0; i < tr.list.depthO-1; i++ {
-					tag.WriteString("\t")
+					tag.WriteString("    ")
 				}
 				tr.list.counter[tr.list.depthO]++
 				tag.WriteString(fmt.Sprintf("%d. ", tr.list.counter[tr.list.depthO]))
 			} else {
 				for i := 0; i < tr.list.depthU-1; i++ {
-					tag.WriteString("\t")
+					tag.WriteString("    ")
 				}
 				tag.WriteString("- ")
 			}
@@ -251,15 +250,15 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 		case adf.InlineNodeCard:
 			tag.WriteString(" 📍 ")
 		case adf.MarkStrong:
-			tag.WriteString(" **")
+			tag.WriteString("**")
 		case adf.MarkEm:
-			tag.WriteString(" _")
+			tag.WriteString("_")
 		case adf.MarkCode:
-			tag.WriteString(" `")
+			tag.WriteString("`")
 		case adf.MarkStrike:
-			tag.WriteString(" -")
+			tag.WriteString("-")
 		case adf.MarkLink:
-			tag.WriteString(" [")
+			tag.WriteString("[")
 		}
 	}
 
@@ -321,13 +320,13 @@ func (tr *MarkdownTranslator) Close(n Connector) string {
 		case adf.InlineNodeEmoji:
 			tag.WriteString(" ")
 		case adf.MarkStrong:
-			tag.WriteString("** ")
+			tag.WriteString("**")
 		case adf.MarkEm:
-			tag.WriteString("_ ")
+			tag.WriteString("_")
 		case adf.MarkCode:
-			tag.WriteString("` ")
+			tag.WriteString("`")
 		case adf.MarkStrike:
-			tag.WriteString("- ")
+			tag.WriteString("-")
 		case adf.MarkLink:
 			tag.WriteString("]")
 		}
