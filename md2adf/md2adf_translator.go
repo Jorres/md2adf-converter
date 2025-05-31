@@ -14,16 +14,28 @@ type Translator struct {
 	userMapping    map[string]string // email -> user ID
 }
 
-func NewTranslator() *Translator {
-	return &Translator{
-		markdownParser: tree_sitter_markdown.NewAdfMarkdownParser(),
-		userMapping:    make(map[string]string),
+type TranslatorOption func(*Translator)
+
+// WithUserEmailMapping sets a user email mapping to render emails to user IDs
+func WithUserEmailMapping(mapping map[string]string) TranslatorOption {
+	return func(tr *Translator) {
+		tr.userMapping = mapping
 	}
 }
 
-func (p *Translator) TranslateToADF(content []byte, userMapping map[string]string) (*adf.ADFDocument, error) {
-	p.userMapping = userMapping
+func NewTranslator(opts ...TranslatorOption) *Translator {
+	tr := &Translator{
+		markdownParser: tree_sitter_markdown.NewAdfMarkdownParser(),
+	}
 
+	for _, opt := range opts {
+		opt(tr)
+	}
+
+	return tr
+}
+
+func (p *Translator) TranslateToADF(content []byte) (*adf.ADFDocument, error) {
 	tree, err := p.markdownParser.Parse(content)
 	if err != nil {
 		return nil, err

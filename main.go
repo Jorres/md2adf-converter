@@ -26,14 +26,14 @@ func main() {
 		}
 	}
 
-	translator := md2adf.NewTranslator()
-
 	// Sample user mapping for testing
 	userMapping := map[string]string{
 		"@jorres@nebius.com": "6acd447c-fd28-4da8-b7cb-5b95d4405540",
 	}
 
-	adfDoc, err := translator.TranslateToADF(input, userMapping)
+	translator := md2adf.NewTranslator(md2adf.WithUserEmailMapping(userMapping))
+
+	adfDoc, err := translator.TranslateToADF(input)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing markdown: %v\n", err)
 		os.Exit(1)

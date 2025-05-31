@@ -8,7 +8,7 @@ func TestSimpleInlineLink(t *testing.T) {
 	translator := NewTranslator()
 	markdown := "[link](https://example.com)"
 
-	doc, err := translator.TranslateToADF([]byte(markdown), nil)
+	doc, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestLinkInListItem(t *testing.T) {
 	translator := NewTranslator()
 	markdown := "1. Item with [link](https://test.com)"
 
-	doc, err := translator.TranslateToADF([]byte(markdown), nil)
+	doc, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestMultipleLinksInParagraph(t *testing.T) {
 	translator := NewTranslator()
 	markdown := "Check [Google](https://google.com) and [GitHub](https://github.com) for more info."
 
-	doc, err := translator.TranslateToADF([]byte(markdown), nil)
+	doc, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}

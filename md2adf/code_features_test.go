@@ -10,7 +10,7 @@ func TestInlineCode(t *testing.T) {
 	translator := NewTranslator()
 
 	markdown := "This has `inline code` in it."
-	adf, err := translator.TranslateToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to translate markdown: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestCodeBlockWithoutLanguage(t *testing.T) {
 	translator := NewTranslator()
 
 	markdown := "```\nfunction hello() {\n    console.log(\"Hello\");\n}\n```"
-	adf, err := translator.TranslateToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to translate markdown: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestCodeBlockWithLanguage(t *testing.T) {
 	translator := NewTranslator()
 
 	markdown := "```go\npackage main\n\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```"
-	adf, err := translator.TranslateToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to translate markdown: %v", err)
 	}
@@ -121,7 +121,7 @@ This paragraph has ` + "`inline code`" + ` in it.
 
 Another paragraph with ` + "`more code`" + `.`
 
-	adf, err := translator.TranslateToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to translate markdown: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestCodeWithPeopleMentions(t *testing.T) {
 	translator := NewTranslator()
 
 	markdown := "Contact `@jorres@nebius.com` or @admin@example.com for help."
-	adf, err := translator.TranslateToADF([]byte(markdown), nil)
+	adf, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to translate markdown: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestSingleLineInlineCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adf, err := translator.TranslateToADF([]byte(tt.markdown), nil)
+			adf, err := translator.TranslateToADF([]byte(tt.markdown))
 			if err != nil {
 				t.Fatalf("Failed to translate markdown: %v", err)
 			}
@@ -322,7 +322,7 @@ func TestInlineCodeEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adf, err := translator.TranslateToADF([]byte(tt.markdown), nil)
+			adf, err := translator.TranslateToADF([]byte(tt.markdown))
 			if err != nil {
 				t.Fatalf("Failed to translate markdown: %v", err)
 			}
@@ -356,7 +356,7 @@ func TestValidADFOutput(t *testing.T) {
 	translator := NewTranslator()
 
 	markdown := "# Test\n\n`code` and @user@example.com\n\n```go\nfmt.Println(\"test\")\n```"
-	translated, err := translator.TranslateToADF([]byte(markdown), nil)
+	translated, err := translator.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to translate markdown: %v", err)
 	}

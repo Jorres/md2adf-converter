@@ -12,7 +12,7 @@ func TestOrderedList(t *testing.T) {
 2. second item with code
 3. third item`
 
-	doc, err := converter.TranslateToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestUnorderedList(t *testing.T) {
 - second bullet  
 - third bullet`
 
-	doc, err := converter.TranslateToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestListWithInlineCode(t *testing.T) {
 	markdown := `1. first ` + "`element`" + ` with a codeblock
 2. second element`
 
-	doc, err := converter.TranslateToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestOrderedListStartingNumber(t *testing.T) {
 	markdown := `5. fifth item
 6. sixth item`
 
-	doc, err := converter.TranslateToADF([]byte(markdown), nil)
+	doc, err := converter.TranslateToADF([]byte(markdown))
 	if err != nil {
 		t.Fatalf("Failed to convert markdown: %v", err)
 	}
