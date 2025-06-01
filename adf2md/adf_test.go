@@ -14,7 +14,7 @@ func TestADF(t *testing.T) {
 	data, err := os.ReadFile("./testdata/md.json")
 	assert.NoError(t, err)
 
-	var adf adf.ADF
+	var adf adf.ADFNode
 	err = json.Unmarshal(data, &adf)
 	assert.NoError(t, err)
 
@@ -103,7 +103,7 @@ func TestADFReplaceAll(t *testing.T) {
 	data, err := os.ReadFile("./testdata/md.json")
 	assert.NoError(t, err)
 
-	var adf adf.ADF
+	var adf adf.ADFNode
 	err = json.Unmarshal(data, &adf)
 	assert.NoError(t, err)
 

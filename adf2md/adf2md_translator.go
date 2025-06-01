@@ -1,6 +1,7 @@
 package adf2md
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"md-adf-exp/adf"
@@ -29,19 +30,31 @@ type Connector interface {
 	GetAttributes() interface{}
 }
 
+// MediaAttributes represents the attributes of a media node in ADF
+type MediaAttributes struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	Collection string `json:"collection"`
+	Alt        string `json:"alt,omitempty"`
+	Width      int    `json:"width,omitempty"`
+	Height     int    `json:"height,omitempty"`
+}
+
 // Translator transforms ADF to a new format.
 type Translator struct {
-	doc *adf.ADF
-	tsl TagOpenerCloser
-	buf *strings.Builder
+	doc          *adf.ADFNode
+	tsl          TagOpenerCloser
+	buf          *strings.Builder
+	mediaMapping map[string]*adf.ADFNode
 }
 
 // NewTranslator constructs an ADF translator.
-func NewTranslator(adf *adf.ADF, tr TagOpenerCloser) *Translator {
+func NewTranslator(doc *adf.ADFNode, tr TagOpenerCloser) *Translator {
 	return &Translator{
-		doc: adf,
-		tsl: tr,
-		buf: new(strings.Builder),
+		doc:          doc,
+		tsl:          tr,
+		buf:          new(strings.Builder),
+		mediaMapping: make(map[string]*adf.ADFNode),
 	}
 }
 
@@ -49,6 +62,11 @@ func NewTranslator(adf *adf.ADF, tr TagOpenerCloser) *Translator {
 func (a *Translator) Translate() string {
 	a.walk()
 	return a.buf.String()
+}
+
+// GetMediaMapping returns the mapping of media IDs to their ADF nodes.
+func (a *Translator) GetMediaMapping() map[string]*adf.ADFNode {
+	return a.mediaMapping
 }
 
 func (a *Translator) walk() {
@@ -60,18 +78,32 @@ func (a *Translator) walk() {
 	}
 }
 
-func (a *Translator) visit(n *adf.Node, depth int) {
+func (a *Translator) visit(n *adf.ADFNode, depth int) {
+	// Store media nodes in mapping before processing
+	if n.Type == adf.NodeMedia {
+		if attrs := n.GetAttributes(); attrs != nil {
+			// Convert attributes to JSON and unmarshal into MediaAttributes struct
+			jsonBytes, err := json.Marshal(attrs)
+			if err == nil {
+				var mediaAttrs MediaAttributes
+				if err := json.Unmarshal(jsonBytes, &mediaAttrs); err == nil && mediaAttrs.ID != "" {
+					a.mediaMapping[mediaAttrs.ID] = n
+				}
+			}
+		}
+	}
+
 	a.buf.WriteString(a.tsl.Open(n, depth))
 
 	for _, child := range n.Content {
 		a.visit(child, depth+1)
 	}
 
-	if adf.GetADFNodeType(n.NodeType) == adf.NodeTypeChild {
+	if adf.GetADFNodeType(n.Type) == adf.NodeTypeChild {
 		var tag strings.Builder
 
-		opened := make([]adf.MarkNode, 0, len(n.Marks))
-		if n.NodeType == adf.ChildNodeText {
+		opened := make([]*adf.ADFMark, 0, len(n.Marks))
+		if n.Type == adf.ChildNodeText {
 			for _, m := range n.Marks {
 				opened = append(opened, m)
 				tag.WriteString(a.tsl.Open(m, depth))
@@ -205,7 +237,12 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 		case adf.NodeTable:
 			tag.WriteString("\n")
 		case adf.NodeMedia:
-			tag.WriteString("\n[attachment]")
+			mediaID := tr.extractMediaID(attrs)
+			if mediaID != "" {
+				tag.WriteString(fmt.Sprintf("\n{attachment:%s}", mediaID))
+			} else {
+				tag.WriteString("\n[attachment]")
+			}
 		case adf.NodeBulletList:
 			tr.list.depthU++
 			tr.list.ul[tr.list.depthU] = true
@@ -435,6 +472,26 @@ func (*MarkdownTranslator) isValidAttr(attr string) bool {
 		}
 	}
 	return false
+}
+
+// extractMediaID extracts the media ID from attributes using proper struct unmarshalling
+func (*MarkdownTranslator) extractMediaID(attrs interface{}) string {
+	if attrs == nil {
+		return ""
+	}
+
+	// Convert attributes to JSON and unmarshal into MediaAttributes struct
+	jsonBytes, err := json.Marshal(attrs)
+	if err != nil {
+		return ""
+	}
+
+	var mediaAttrs MediaAttributes
+	if err := json.Unmarshal(jsonBytes, &mediaAttrs); err != nil {
+		return ""
+	}
+
+	return mediaAttrs.ID
 }
 
 const (

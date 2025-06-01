@@ -2,6 +2,7 @@ package adf
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 )
 
@@ -44,56 +45,28 @@ const (
 
 // ADF document structure (primary interface)
 type ADFDocument struct {
-	Version int       `json:"version"`
-	Type    string    `json:"type"`
-	Content []ADFNode `json:"content"`
+	Version int        `json:"version"`
+	Type    string     `json:"type"`
+	Content []*ADFNode `json:"content"`
 }
 
-// ADF is an Atlassian document format object (legacy interface).
-type ADF struct {
-	Version int     `json:"version"`
-	DocType string  `json:"type"`
-	Content []*Node `json:"content"`
-}
-
-// Generic ADF node (primary interface)
 type ADFNode struct {
-	Type    string         `json:"type"`
-	Content []ADFNode      `json:"content,omitempty"`
+	Type    NodeType       `json:"type"`
+	Content []*ADFNode     `json:"content,omitempty"`
 	Text    string         `json:"text,omitempty"`
-	Marks   []ADFMark      `json:"marks,omitempty"`
+	Marks   []*ADFMark     `json:"marks,omitempty"`
 	Attrs   map[string]any `json:"attrs,omitempty"`
-}
-
-// Node is an ADF content node (legacy interface).
-type Node struct {
-	NodeType   NodeType    `json:"type"`
-	Content    []*Node     `json:"content,omitempty"`
-	Attributes interface{} `json:"attrs,omitempty"`
-	NodeValue
 }
 
 // ADF mark for formatting (primary interface)
 type ADFMark struct {
-	Type  string         `json:"type"`
+	Type  NodeType       `json:"type"`
 	Attrs map[string]any `json:"attrs,omitempty"`
-}
-
-// MarkNode is a mark node type (legacy interface).
-type MarkNode struct {
-	MarkType   NodeType    `json:"type,omitempty"`
-	Attributes interface{} `json:"attrs,omitempty"`
-}
-
-// NodeValue is an actual ADF node content.
-type NodeValue struct {
-	Text  string     `json:"text,omitempty"`
-	Marks []MarkNode `json:"marks,omitempty"`
 }
 
 // ReplaceAll replaces all occurrences of an old string
 // in a text node with a new one.
-func (a *ADF) ReplaceAll(old, new string) {
+func (a *ADFNode) ReplaceAll(old, new string) {
 	if a == nil || len(a.Content) == 0 {
 		return
 	}
@@ -102,26 +75,26 @@ func (a *ADF) ReplaceAll(old, new string) {
 	}
 }
 
-func (a *ADF) replace(n *Node, old, new string) {
+func (a *ADFNode) replace(n *ADFNode, old, new string) {
 	for _, child := range n.Content {
 		a.replace(child, old, new)
 	}
-	if n.NodeType == ChildNodeText {
+	if n.Type == ChildNodeText {
 		n.Text = strings.ReplaceAll(n.Text, old, new)
 	}
 }
 
 // GetType gets node type.
-func (n Node) GetType() NodeType { return n.NodeType }
+func (n *ADFNode) GetType() NodeType { return n.Type }
 
 // GetAttributes gets node attributes.
-func (n Node) GetAttributes() interface{} { return n.Attributes }
+func (n *ADFNode) GetAttributes() any { return n.Attrs }
 
 // GetType gets node type.
-func (n MarkNode) GetType() NodeType { return n.MarkType }
+func (n *ADFMark) GetType() NodeType { return n.Type }
 
 // GetAttributes gets node attributes.
-func (n MarkNode) GetAttributes() interface{} { return n.Attributes }
+func (n *ADFMark) GetAttributes() any { return n.Attrs }
 
 // ParentNodes returns supported ADF parent nodes.
 func ParentNodes() []NodeType {
@@ -151,22 +124,12 @@ func ChildNodes() []NodeType {
 
 // IsParentNode checks if the node is a parent node.
 func IsParentNode(identifier NodeType) bool {
-	for _, n := range ParentNodes() {
-		if n == identifier {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ParentNodes(), identifier)
 }
 
 // IsChildNode checks if the node is a child node.
 func IsChildNode(identifier NodeType) bool {
-	for _, n := range ChildNodes() {
-		if n == identifier {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ChildNodes(), identifier)
 }
 
 // GetADFNodeType returns the type of ADF node.
@@ -185,7 +148,7 @@ func NewADFDocument() *ADFDocument {
 	return &ADFDocument{
 		Version: 1,
 		Type:    "doc",
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 	}
 }
 
@@ -193,7 +156,7 @@ func NewADFDocument() *ADFDocument {
 func NewParagraphNode() *ADFNode {
 	return &ADFNode{
 		Type:    "paragraph",
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 	}
 }
 
@@ -206,7 +169,7 @@ func NewTextNode(text string) *ADFNode {
 }
 
 // Create a text node with marks
-func NewTextNodeWithMarks(text string, marks []ADFMark) *ADFNode {
+func NewTextNodeWithMarks(text string, marks []*ADFMark) *ADFNode {
 	return &ADFNode{
 		Type:  "text",
 		Text:  text,
@@ -221,13 +184,13 @@ func NewHeadingNode(level int) *ADFNode {
 		Attrs: map[string]any{
 			"level": level,
 		},
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 	}
 }
 
 // Create a link mark
-func NewLinkMark(href string) ADFMark {
-	return ADFMark{
+func NewLinkMark(href string) *ADFMark {
+	return &ADFMark{
 		Type: "link",
 		Attrs: map[string]any{
 			"href": href,
@@ -236,8 +199,8 @@ func NewLinkMark(href string) ADFMark {
 }
 
 // Create a people mention mark (custom ADF extension)
-func NewPeopleMentionMark(email string) ADFMark {
-	return ADFMark{
+func NewPeopleMentionMark(email string) *ADFMark {
+	return &ADFMark{
 		Type: "mention",
 		Attrs: map[string]any{
 			"id":   email,
@@ -247,8 +210,8 @@ func NewPeopleMentionMark(email string) ADFMark {
 }
 
 // Create a code mark
-func NewCodeMark() ADFMark {
-	return ADFMark{
+func NewCodeMark() *ADFMark {
+	return &ADFMark{
 		Type: "code",
 	}
 }
@@ -273,7 +236,7 @@ func NewCodeBlockNode(language string) *ADFNode {
 
 	return &ADFNode{
 		Type:    "codeBlock",
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 		Attrs:   attrs,
 	}
 }
@@ -282,7 +245,7 @@ func NewCodeBlockNode(language string) *ADFNode {
 func NewBulletListNode() *ADFNode {
 	return &ADFNode{
 		Type:    "bulletList",
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 	}
 }
 
@@ -295,7 +258,7 @@ func NewOrderedListNode(order int) *ADFNode {
 
 	return &ADFNode{
 		Type:    "orderedList",
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 		Attrs:   attrs,
 	}
 }
@@ -304,7 +267,7 @@ func NewOrderedListNode(order int) *ADFNode {
 func NewListItemNode() *ADFNode {
 	return &ADFNode{
 		Type:    "listItem",
-		Content: []ADFNode{},
+		Content: []*ADFNode{},
 	}
 }
 

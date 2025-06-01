@@ -3,6 +3,7 @@ package md2adf
 import (
 	"fmt"
 	"md-adf-exp/adf"
+	"md-adf-exp/adf2md"
 	"strings"
 
 	tree_sitter_markdown "github.com/tree-sitter-grammars/tree-sitter-markdown/bindings/go"
@@ -11,7 +12,9 @@ import (
 
 type Translator struct {
 	markdownParser *tree_sitter_markdown.AdfMarkdownParser
-	userMapping    map[string]string // email -> user ID
+
+	userMapping       map[string]string // email -> user ID
+	reverseTranslator *adf2md.Translator
 }
 
 type TranslatorOption func(*Translator)
@@ -20,6 +23,12 @@ type TranslatorOption func(*Translator)
 func WithUserEmailMapping(mapping map[string]string) TranslatorOption {
 	return func(tr *Translator) {
 		tr.userMapping = mapping
+	}
+}
+
+func WithAdf2MdTranslator(translator *adf2md.Translator) TranslatorOption {
+	return func(tr *Translator) {
+		tr.reverseTranslator = translator
 	}
 }
 
@@ -58,25 +67,25 @@ func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADF
 	case "atx_heading":
 		heading := p.convertHeading(node, content)
 		if heading != nil {
-			doc.Content = append(doc.Content, *heading)
+			doc.Content = append(doc.Content, heading)
 		}
 
 	case "paragraph":
 		paragraph := p.convertParagraph(node, content)
 		if paragraph != nil {
-			doc.Content = append(doc.Content, *paragraph)
+			doc.Content = append(doc.Content, paragraph)
 		}
 
 	case "fenced_code_block":
 		codeBlock := p.convertCodeBlock(node, content)
 		if codeBlock != nil {
-			doc.Content = append(doc.Content, *codeBlock)
+			doc.Content = append(doc.Content, codeBlock)
 		}
 
 	case "list":
 		list := p.convertList(node, content)
 		if list != nil {
-			doc.Content = append(doc.Content, *list)
+			doc.Content = append(doc.Content, list)
 		}
 	}
 }
@@ -174,7 +183,7 @@ func (p *Translator) convertCodeBlock(node *sitter.Node, content []byte) *adf.AD
 
 	codeBlock := adf.NewCodeBlockNode(language)
 	if codeContent != "" {
-		codeBlock.Content = append(codeBlock.Content, *adf.NewTextNode(codeContent))
+		codeBlock.Content = append(codeBlock.Content, adf.NewTextNode(codeContent))
 	}
 
 	return codeBlock
@@ -186,7 +195,7 @@ func (p *Translator) processInlineContent(inlineNode *sitter.Node, content []byt
 		// No inline tree, treat as plain text
 		text := string(content[inlineNode.StartByte():inlineNode.EndByte()])
 		if strings.TrimSpace(text) != "" {
-			parent.Content = append(parent.Content, *adf.NewTextNode(text))
+			parent.Content = append(parent.Content, adf.NewTextNode(text))
 		}
 		return
 	}
@@ -212,7 +221,7 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 		if child.StartByte() > currentPos {
 			gapText := string(inlineContent[currentPos:child.StartByte()])
 			if strings.TrimSpace(gapText) != "" {
-				parent.Content = append(parent.Content, *adf.NewTextNode(gapText))
+				parent.Content = append(parent.Content, adf.NewTextNode(gapText))
 			}
 		}
 
@@ -238,8 +247,16 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 			}
 
 			mentionNode := adf.NewMentionNode(userID, displayText)
-			parent.Content = append(parent.Content, *mentionNode)
+			parent.Content = append(parent.Content, mentionNode)
 
+		case "attachment":
+			text := string(inlineContent[child.StartByte():child.EndByte()])
+			attachmentId := strings.TrimSpace(text)
+			fmt.Println("text inside attachment node", attachmentId)
+			attachmentMap := p.reverseTranslator.GetMediaMapping()
+			if mediaNode, exists := attachmentMap[attachmentId]; exists {
+				parent.Content = append(parent.Content, mediaNode)
+			}
 		case "code_span":
 			p.processCodeSpan(child, inlineContent, parent)
 
@@ -249,14 +266,14 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 		case "text":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
-				parent.Content = append(parent.Content, *adf.NewTextNode(text))
+				parent.Content = append(parent.Content, adf.NewTextNode(text))
 			}
 
 		default:
 			// For other elements (punctuation, etc.), include as plain text
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
-				parent.Content = append(parent.Content, *adf.NewTextNode(text))
+				parent.Content = append(parent.Content, adf.NewTextNode(text))
 			}
 		}
 
@@ -267,7 +284,7 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 	if currentPos < uint(len(inlineContent)) {
 		remainingText := string(inlineContent[currentPos:])
 		if strings.TrimSpace(remainingText) != "" {
-			parent.Content = append(parent.Content, *adf.NewTextNode(remainingText))
+			parent.Content = append(parent.Content, adf.NewTextNode(remainingText))
 		}
 	}
 }
@@ -293,8 +310,8 @@ func (p *Translator) processCodeSpan(codeNode *sitter.Node, inlineContent []byte
 	}
 	if codeText != "" {
 		codeMark := adf.NewCodeMark()
-		textNode := adf.NewTextNodeWithMarks(codeText, []adf.ADFMark{codeMark})
-		parent.Content = append(parent.Content, *textNode)
+		textNode := adf.NewTextNodeWithMarks(codeText, []*adf.ADFMark{codeMark})
+		parent.Content = append(parent.Content, textNode)
 	}
 }
 
@@ -328,8 +345,8 @@ func (p *Translator) processLink(linkNode *sitter.Node, inlineContent []byte, pa
 	// Create text node with link mark
 	if linkText != "" && linkURL != "" {
 		linkMark := adf.NewLinkMark(linkURL)
-		textNode := adf.NewTextNodeWithMarks(linkText, []adf.ADFMark{linkMark})
-		parent.Content = append(parent.Content, *textNode)
+		textNode := adf.NewTextNodeWithMarks(linkText, []*adf.ADFMark{linkMark})
+		parent.Content = append(parent.Content, textNode)
 	}
 }
 
@@ -370,7 +387,7 @@ func (p *Translator) convertList(node *sitter.Node, content []byte) *adf.ADFNode
 		if child.Kind() == "list_item" {
 			listItem := p.convertListItem(child, content)
 			if listItem != nil {
-				listNode.Content = append(listNode.Content, *listItem)
+				listNode.Content = append(listNode.Content, listItem)
 			}
 		}
 	}
@@ -390,13 +407,13 @@ func (p *Translator) convertListItem(node *sitter.Node, content []byte) *adf.ADF
 			// Convert the paragraph content of the list item
 			paragraph := p.convertParagraph(child, content)
 			if paragraph != nil {
-				listItem.Content = append(listItem.Content, *paragraph)
+				listItem.Content = append(listItem.Content, paragraph)
 			}
 		case "list":
 			// Handle nested lists
 			nestedList := p.convertList(child, content)
 			if nestedList != nil {
-				listItem.Content = append(listItem.Content, *nestedList)
+				listItem.Content = append(listItem.Content, nestedList)
 			}
 		}
 		// Ignore list markers and other elements
