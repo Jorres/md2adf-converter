@@ -49,17 +49,20 @@ type Translator struct {
 }
 
 // NewTranslator constructs an ADF translator.
-func NewTranslator(doc *adf.ADFNode, tr TagOpenerCloser) *Translator {
+func NewTranslator(tr TagOpenerCloser) *Translator {
 	return &Translator{
-		doc:          doc,
+		doc:          nil,
 		tsl:          tr,
-		buf:          new(strings.Builder),
+		buf:          nil,
 		mediaMapping: make(map[string]*adf.ADFNode),
 	}
 }
 
 // Translate translates ADF to a new format.
-func (a *Translator) Translate() string {
+func (a *Translator) Translate(doc *adf.ADFNode) string {
+	a.doc = doc
+	a.buf = new(strings.Builder)
+
 	a.walk()
 	return a.buf.String()
 }
@@ -74,29 +77,31 @@ func (a *Translator) walk() {
 		return
 	}
 	for _, parent := range a.doc.Content {
-		a.visit(parent, 0)
+		a.visit(parent, a.doc, 0)
 	}
 }
 
-func (a *Translator) visit(n *adf.ADFNode, depth int) {
-	// Store media nodes in mapping before processing
-	if n.Type == adf.NodeMedia {
-		if attrs := n.GetAttributes(); attrs != nil {
-			// Convert attributes to JSON and unmarshal into MediaAttributes struct
-			jsonBytes, err := json.Marshal(attrs)
-			if err == nil {
-				var mediaAttrs MediaAttributes
-				if err := json.Unmarshal(jsonBytes, &mediaAttrs); err == nil && mediaAttrs.ID != "" {
-					a.mediaMapping[mediaAttrs.ID] = n
-				}
-			}
+func (a *Translator) visit(n *adf.ADFNode, parent *adf.ADFNode, depth int) {
+	if n.Type == adf.NodeMediaGroup || n.Type == adf.NodeMediaSingle {
+		// We currently don't distinguish between group \ single, just preserve them
+		// fully and resend them back to jira on update
+		var firstChildMediaAttrs MediaAttributes
+		firstChildNode := n.Content[0]
+		jsonBytes, err := json.Marshal(firstChildNode.Attrs)
+		if err != nil {
+			panic("NodeMedia node is supposed to have children")
+		}
+
+		_ = json.Unmarshal(jsonBytes, &firstChildMediaAttrs)
+		if firstChildMediaAttrs.ID != "" {
+			a.mediaMapping[firstChildMediaAttrs.ID] = n
 		}
 	}
 
 	a.buf.WriteString(a.tsl.Open(n, depth))
 
 	for _, child := range n.Content {
-		a.visit(child, depth+1)
+		a.visit(child, n, depth+1)
 	}
 
 	if adf.GetADFNodeType(n.Type) == adf.NodeTypeChild {

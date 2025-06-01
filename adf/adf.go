@@ -24,6 +24,8 @@ const (
 	NodeParagraph   = NodeType("paragraph")
 	NodeTable       = NodeType("table")
 	NodeMedia       = NodeType("media")
+	NodeMediaGroup  = NodeType("mediaGroup")
+	NodeMediaSingle = NodeType("mediaSingle")
 
 	ChildNodeText        = NodeType("text")
 	ChildNodeListItem    = NodeType("listItem")

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"md-adf-exp/adf"
 	"md-adf-exp/adf2md"
+	"md-adf-exp/debug"
 	"strings"
 
 	tree_sitter_markdown "github.com/tree-sitter-grammars/tree-sitter-markdown/bindings/go"
@@ -68,6 +69,22 @@ func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADF
 		heading := p.convertHeading(node, content)
 		if heading != nil {
 			doc.Content = append(doc.Content, heading)
+		}
+
+	case "attachment":
+		text := content[node.StartByte():node.EndByte()]
+		debug.Debug("when parsing attachment", string(text))
+		for i := range int(node.ChildCount()) {
+			child := node.Child(uint(i))
+			if child.Kind() == "attachment_path" {
+				attachmentMap := p.reverseTranslator.GetMediaMapping()
+				debug.Debug("byte range", child.StartByte(), child.EndByte())
+				attachmentId := string(content[child.StartByte():child.EndByte()])
+				debug.Debug("attachment id inside md2adf", attachmentId)
+				if mediaNode, exists := attachmentMap[attachmentId]; exists {
+					doc.Content = append(doc.Content, mediaNode)
+				}
+			}
 		}
 
 	case "paragraph":
@@ -249,14 +266,6 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 			mentionNode := adf.NewMentionNode(userID, displayText)
 			parent.Content = append(parent.Content, mentionNode)
 
-		case "attachment":
-			text := string(inlineContent[child.StartByte():child.EndByte()])
-			attachmentId := strings.TrimSpace(text)
-			fmt.Println("text inside attachment node", attachmentId)
-			attachmentMap := p.reverseTranslator.GetMediaMapping()
-			if mediaNode, exists := attachmentMap[attachmentId]; exists {
-				parent.Content = append(parent.Content, mediaNode)
-			}
 		case "code_span":
 			p.processCodeSpan(child, inlineContent, parent)
 
