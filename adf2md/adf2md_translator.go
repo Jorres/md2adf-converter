@@ -40,21 +40,29 @@ type MediaAttributes struct {
 	Height     int    `json:"height,omitempty"`
 }
 
+// InlineCardAttributes represents the attributes of an inline card node in ADF
+type InlineCardAttributes struct {
+	Data string `json:"data"`
+	URL  string `json:"url"`
+}
+
 // Translator transforms ADF to a new format.
 type Translator struct {
-	doc          *adf.ADFNode
-	tsl          TagOpenerCloser
-	buf          *strings.Builder
-	mediaMapping map[string]*adf.ADFNode
+	doc               *adf.ADFNode
+	tsl               TagOpenerCloser
+	buf               *strings.Builder
+	mediaMapping      map[string]*adf.ADFNode
+	inlineCardMapping map[string]*adf.ADFNode
 }
 
 // NewTranslator constructs an ADF translator.
 func NewTranslator(tr TagOpenerCloser) *Translator {
 	return &Translator{
-		doc:          nil,
-		tsl:          tr,
-		buf:          nil,
-		mediaMapping: make(map[string]*adf.ADFNode),
+		doc:               nil,
+		tsl:               tr,
+		buf:               nil,
+		mediaMapping:      make(map[string]*adf.ADFNode),
+		inlineCardMapping: make(map[string]*adf.ADFNode),
 	}
 }
 
@@ -70,6 +78,11 @@ func (a *Translator) Translate(doc *adf.ADFNode) string {
 // GetMediaMapping returns the mapping of media IDs to their ADF nodes.
 func (a *Translator) GetMediaMapping() map[string]*adf.ADFNode {
 	return a.mediaMapping
+}
+
+// GetInlineCardMapping returns the mapping of inline card URLs to their ADF nodes.
+func (a *Translator) GetInlineCardMapping() map[string]*adf.ADFNode {
+	return a.inlineCardMapping
 }
 
 func (a *Translator) walk() {
@@ -95,6 +108,15 @@ func (a *Translator) visit(n *adf.ADFNode, parent *adf.ADFNode, depth int) {
 		_ = json.Unmarshal(jsonBytes, &firstChildMediaAttrs)
 		if firstChildMediaAttrs.ID != "" {
 			a.mediaMapping[firstChildMediaAttrs.ID] = n
+		}
+	}
+
+	if n.Type == adf.InlineNodeCard {
+		var attrs InlineCardAttributes
+		jsonBytes, _ := json.Marshal(n.Attrs)
+		_ = json.Unmarshal(jsonBytes, &attrs)
+		if attrs.URL != "" {
+			a.inlineCardMapping[attrs.URL] = n
 		}
 	}
 
@@ -290,7 +312,12 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 			tag.WriteString(tr.setOpenTagAttributesForMention(attrs))
 			return tag.String() // Return early to avoid double processing
 		case adf.InlineNodeCard:
-			tag.WriteString(" 📍 ")
+			cardURL := tr.extractCardURL(attrs)
+			if cardURL != "" {
+				tag.WriteString(fmt.Sprintf("[link](%s)", cardURL))
+			} else {
+				tag.WriteString(" 📍 ")
+			}
 		case adf.MarkStrong:
 			tag.WriteString("**")
 		case adf.MarkEm:
@@ -462,8 +489,6 @@ func (*MarkdownTranslator) setCloseTagAttributes(a interface{}) string {
 	attrs := a.(map[string]interface{})
 	if h, ok := attrs["href"]; ok {
 		tag.WriteString(fmt.Sprintf("(%s) ", h))
-	} else if h, ok := attrs["url"]; ok {
-		tag.WriteString(fmt.Sprintf("%s ", h))
 	}
 
 	return tag.String()
@@ -479,13 +504,12 @@ func (*MarkdownTranslator) isValidAttr(attr string) bool {
 	return false
 }
 
-// extractMediaID extracts the media ID from attributes using proper struct unmarshalling
+// extractMediaID extracts the media ID from attributes
 func (*MarkdownTranslator) extractMediaID(attrs interface{}) string {
 	if attrs == nil {
 		return ""
 	}
 
-	// Convert attributes to JSON and unmarshal into MediaAttributes struct
 	jsonBytes, err := json.Marshal(attrs)
 	if err != nil {
 		return ""
@@ -497,6 +521,25 @@ func (*MarkdownTranslator) extractMediaID(attrs interface{}) string {
 	}
 
 	return mediaAttrs.ID
+}
+
+// extractCardURL extracts the inline card URL from attributes
+func (*MarkdownTranslator) extractCardURL(attrs interface{}) string {
+	if attrs == nil {
+		return ""
+	}
+
+	jsonBytes, err := json.Marshal(attrs)
+	if err != nil {
+		return ""
+	}
+
+	var inlineCardAttrs InlineCardAttributes
+	if err := json.Unmarshal(jsonBytes, &inlineCardAttrs); err != nil {
+		return ""
+	}
+
+	return inlineCardAttrs.URL
 }
 
 const (

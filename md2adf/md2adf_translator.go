@@ -11,6 +11,8 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+var _ = debug.Debug
+
 type Translator struct {
 	markdownParser *tree_sitter_markdown.AdfMarkdownParser
 
@@ -72,15 +74,11 @@ func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADF
 		}
 
 	case "attachment":
-		text := content[node.StartByte():node.EndByte()]
-		debug.Debug("when parsing attachment", string(text))
 		for i := range int(node.ChildCount()) {
 			child := node.Child(uint(i))
 			if child.Kind() == "attachment_path" {
 				attachmentMap := p.reverseTranslator.GetMediaMapping()
-				debug.Debug("byte range", child.StartByte(), child.EndByte())
 				attachmentId := string(content[child.StartByte():child.EndByte()])
-				debug.Debug("attachment id inside md2adf", attachmentId)
 				if mediaNode, exists := attachmentMap[attachmentId]; exists {
 					doc.Content = append(doc.Content, mediaNode)
 				}
@@ -351,7 +349,11 @@ func (p *Translator) processLink(linkNode *sitter.Node, inlineContent []byte, pa
 		}
 	}
 
-	// Create text node with link mark
+	if inlineCardNode, exists := p.reverseTranslator.GetInlineCardMapping()[linkURL]; exists {
+		parent.Content = append(parent.Content, inlineCardNode)
+		return
+	}
+
 	if linkText != "" && linkURL != "" {
 		linkMark := adf.NewLinkMark(linkURL)
 		textNode := adf.NewTextNodeWithMarks(linkText, []*adf.ADFMark{linkMark})
