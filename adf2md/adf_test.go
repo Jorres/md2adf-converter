@@ -18,7 +18,7 @@ func TestADF(t *testing.T) {
 	err = json.Unmarshal(data, &adf)
 	assert.NoError(t, err)
 
-	tr := NewTranslator(&adf, NewMarkdownTranslator())
+	tr := NewTranslator(NewMarkdownTranslator())
 
 	expected := `# H1
 ## H2
@@ -31,7 +31,7 @@ func TestADF(t *testing.T) {
 > Blockquote text
 
 
-Inline Node 📍 https://antiklabs.atlassian.net/wiki/spaces/ANK/pages/124234/hello-world 
+Inline Node [link](https://antiklabs.atlassian.net/wiki/spaces/ANK/pages/124234/hello-world)
 
 Implement epic browser
 
@@ -96,7 +96,7 @@ Table row 1 column 2 | Table row 2 column 2 | Table row 3 column 2 | Table row 4
 Table row 1 column 2 | Table row 2 column 3 | Table row 3 column 3 | Table row 4 column 3 | Table row 5 column 3
 `
 
-	assert.Equal(t, expected, tr.Translate())
+	assert.Equal(t, expected, tr.Translate(&adf))
 }
 
 func TestADFReplaceAll(t *testing.T) {

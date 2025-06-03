@@ -44,6 +44,13 @@ func NewTranslator(opts ...TranslatorOption) *Translator {
 		opt(tr)
 	}
 
+	// if no one supplied a translator with info about links and attachments,
+	// assume we do just one-off parsing and default to empty knowledge about the
+	// document
+	if tr.reverseTranslator == nil {
+		tr.reverseTranslator = adf2md.NewTranslator(adf2md.NewJiraMarkdownTranslator())
+	}
+
 	return tr
 }
 
@@ -235,9 +242,7 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 		// Add gap before this node
 		if child.StartByte() > currentPos {
 			gapText := string(inlineContent[currentPos:child.StartByte()])
-			if strings.TrimSpace(gapText) != "" {
-				parent.Content = append(parent.Content, adf.NewTextNode(gapText))
-			}
+			parent.Content = append(parent.Content, adf.NewTextNode(gapText))
 		}
 
 		// Process this node

@@ -31,7 +31,9 @@ func main() {
 		"@jorres@nebius.com": "6acd447c-fd28-4da8-b7cb-5b95d4405540",
 	}
 
-	translator := md2adf.NewTranslator(md2adf.WithUserEmailMapping(userMapping))
+	translator := md2adf.NewTranslator(
+		md2adf.WithUserEmailMapping(userMapping),
+	)
 
 	adfDoc, err := translator.TranslateToADF(input)
 	if err != nil {
