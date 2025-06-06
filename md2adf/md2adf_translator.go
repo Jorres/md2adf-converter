@@ -275,6 +275,18 @@ func (p *Translator) processInlineTreeWithGaps(inlineRoot *sitter.Node, inlineCo
 		case "inline_link":
 			p.processLink(child, inlineContent, parent)
 
+		case "strong_emphasis":
+			p.processTextWithMarks(child, inlineContent, parent)
+
+		case "underline":
+			p.processTextWithMarks(child, inlineContent, parent)
+
+		case "strikethrough":
+			p.processTextWithMarks(child, inlineContent, parent)
+
+		case "emphasis":
+			p.processTextWithMarks(child, inlineContent, parent)
+
 		case "text":
 			text := string(inlineContent[child.StartByte():child.EndByte()])
 			if strings.TrimSpace(text) != "" {
@@ -469,4 +481,158 @@ func (p *Translator) extractOrderFromListItem(listItemNode *sitter.Node, content
 		}
 	}
 	return 1 // Default to 1 if we can't parse
+}
+
+// processTextWithMarks processes nodes with text formatting marks (strong, underline, strikethrough, emphasis)
+func (p *Translator) processTextWithMarks(node *sitter.Node, inlineContent []byte, parent *adf.ADFNode) {
+	text, marks := p.extractTextContentWithMarks(node, inlineContent)
+
+	if strings.TrimSpace(text) != "" {
+		textNode := adf.NewTextNodeWithMarks(text, marks)
+		parent.Content = append(parent.Content, textNode)
+	}
+}
+
+// extractTextContentWithMarks recursively extracts text content and collects marks
+func (p *Translator) extractTextContentWithMarks(node *sitter.Node, inlineContent []byte) (string, []*adf.ADFMark) {
+	nodeType := node.Kind()
+	marks := []*adf.ADFMark{}
+
+	// Add mark based on node type
+	switch nodeType {
+	case "strong_emphasis":
+		marks = append(marks, adf.NewStrongMark())
+	case "underline":
+		marks = append(marks, adf.NewUnderlineMark())
+	case "strikethrough":
+		marks = append(marks, adf.NewStrikethroughMark())
+	case "emphasis":
+		marks = append(marks, adf.NewEmphasisMark())
+	}
+
+	childCount := int(node.ChildCount())
+
+	// Handle different formatting node types
+	switch nodeType {
+	case "strong_emphasis":
+		// Find first and last delimiter positions for **text**
+		var firstDelimiterEnd, lastDelimiterStart uint
+		delimiterCount := 0
+
+		for i := range childCount {
+			child := node.Child(uint(i))
+			if child.Kind() == "emphasis_delimiter" {
+				delimiterCount++
+				if delimiterCount == 2 { // After second delimiter (opening pair)
+					firstDelimiterEnd = child.EndByte()
+				}
+				if delimiterCount == 3 { // Third delimiter (start of closing pair)
+					lastDelimiterStart = child.StartByte()
+				}
+			}
+		}
+
+		// Extract text between the delimiters or process nested formatting
+		if delimiterCount >= 4 && lastDelimiterStart > firstDelimiterEnd {
+			// Check for nested formatting within this content first
+			for i := range childCount {
+				child := node.Child(uint(i))
+				childType := child.Kind()
+
+				if childType == "underline" || childType == "strikethrough" || childType == "emphasis" {
+					nestedText, nestedMarks := p.extractTextContentWithMarks(child, inlineContent)
+					// Combine marks: current marks + nested marks
+					allMarks := append(marks, nestedMarks...)
+					return nestedText, allMarks
+				}
+			}
+
+			// No nested formatting, return text between delimiters
+			return string(inlineContent[firstDelimiterEnd:lastDelimiterStart]), marks
+		}
+
+	case "strikethrough", "emphasis":
+		// Find first and last delimiter positions for ~text~ or _text_
+		var firstDelimiterEnd, lastDelimiterStart uint
+		delimiterCount := 0
+
+		for i := range childCount {
+			child := node.Child(uint(i))
+			if child.Kind() == "emphasis_delimiter" {
+				delimiterCount++
+				if delimiterCount == 1 { // After first delimiter
+					firstDelimiterEnd = child.EndByte()
+				}
+				if delimiterCount == 2 { // Second delimiter
+					lastDelimiterStart = child.StartByte()
+				}
+			}
+		}
+
+		// Extract text between the delimiters or process nested formatting
+		if delimiterCount >= 2 && lastDelimiterStart > firstDelimiterEnd {
+			// Check for nested formatting within this content first
+			for i := range childCount {
+				child := node.Child(uint(i))
+				childType := child.Kind()
+
+				if childType == "strong_emphasis" || childType == "underline" || childType == "emphasis" || childType == "strikethrough" {
+					// Skip self-reference to avoid infinite recursion
+					if childType != nodeType {
+						nestedText, nestedMarks := p.extractTextContentWithMarks(child, inlineContent)
+						// Combine marks: current marks + nested marks
+						allMarks := append(marks, nestedMarks...)
+						return nestedText, allMarks
+					}
+				}
+			}
+
+			// No nested formatting, return text between delimiters
+			return string(inlineContent[firstDelimiterEnd:lastDelimiterStart]), marks
+		}
+
+	case "underline":
+		// For underline, look for underline_content directly
+		for i := range childCount {
+			child := node.Child(uint(i))
+			if child.Kind() == "underline_content" {
+				return string(inlineContent[child.StartByte():child.EndByte()]), marks
+			}
+		}
+	}
+
+	// Look for text content in children (fallback for other node types)
+	var textContent strings.Builder
+	for i := range childCount {
+		child := node.Child(uint(i))
+		childType := child.Kind()
+
+		switch childType {
+		case "underline_content":
+			// Direct text content from underline
+			text := string(inlineContent[child.StartByte():child.EndByte()])
+			textContent.WriteString(text)
+
+		case "strong_emphasis", "underline", "strikethrough", "emphasis":
+			// Nested formatting - recurse
+			nestedText, nestedMarks := p.extractTextContentWithMarks(child, inlineContent)
+			marks = append(marks, nestedMarks...)
+			textContent.WriteString(nestedText)
+
+		case "emphasis_delimiter", "underline_open", "underline_close":
+			// Skip delimiters and markup
+			continue
+
+		default:
+			// For text content that's not a delimiter, include it
+			if !strings.Contains(childType, "delimiter") &&
+				!strings.Contains(childType, "_open") &&
+				!strings.Contains(childType, "_close") {
+				text := string(inlineContent[child.StartByte():child.EndByte()])
+				textContent.WriteString(text)
+			}
+		}
+	}
+
+	return textContent.String(), marks
 }

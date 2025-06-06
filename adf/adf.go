@@ -38,11 +38,12 @@ const (
 	InlineNodeMention   = NodeType("mention")
 	InlineNodeHardBreak = NodeType("hardBreak")
 
-	MarkEm     = NodeType("em")
-	MarkLink   = NodeType("link")
-	MarkCode   = NodeType("code")
-	MarkStrike = NodeType("strike")
-	MarkStrong = NodeType("strong")
+	MarkEm        = NodeType("em")
+	MarkLink      = NodeType("link")
+	MarkCode      = NodeType("code")
+	MarkStrike    = NodeType("strike")
+	MarkStrong    = NodeType("strong")
+	MarkUnderline = NodeType("underline")
 )
 
 // ADF document structure (primary interface)
@@ -215,6 +216,34 @@ func NewPeopleMentionMark(email string) *ADFMark {
 func NewCodeMark() *ADFMark {
 	return &ADFMark{
 		Type: "code",
+	}
+}
+
+// Create a strong mark
+func NewStrongMark() *ADFMark {
+	return &ADFMark{
+		Type: "strong",
+	}
+}
+
+// Create an underline mark
+func NewUnderlineMark() *ADFMark {
+	return &ADFMark{
+		Type: "underline",
+	}
+}
+
+// Create a strikethrough mark
+func NewStrikethroughMark() *ADFMark {
+	return &ADFMark{
+		Type: "strike",
+	}
+}
+
+// Create an emphasis mark (italics)
+func NewEmphasisMark() *ADFMark {
+	return &ADFMark{
+		Type: "em",
 	}
 }
 

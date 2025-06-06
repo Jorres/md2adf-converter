@@ -94,6 +94,24 @@ func (a *Translator) walk() {
 	}
 }
 
+func (a *Translator) CheckSupport(n *adf.ADFNode) map[adf.NodeType]bool {
+	forbidden := make(map[adf.NodeType]bool)
+
+	if n.Type == adf.NodePanel ||
+		n.Type == adf.NodeBlockquote ||
+		n.Type == adf.NodeTable {
+		forbidden[n.Type] = true
+	}
+
+	for _, child := range n.Content {
+		for k, _ := range a.CheckSupport(child) {
+			forbidden[k] = true
+		}
+	}
+
+	return forbidden
+}
+
 func (a *Translator) visit(n *adf.ADFNode, parent *adf.ADFNode, depth int) {
 	if n.Type == adf.NodeMediaGroup || n.Type == adf.NodeMediaSingle {
 		// We currently don't distinguish between group \ single, just preserve them
@@ -318,6 +336,8 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 			} else {
 				tag.WriteString(" 📍 ")
 			}
+		case adf.MarkUnderline:
+			tag.WriteString("<u>")
 		case adf.MarkStrong:
 			tag.WriteString("**")
 		case adf.MarkEm:
@@ -375,7 +395,7 @@ func (tr *MarkdownTranslator) Close(n Connector) string {
 		case adf.ChildNodeTableRow:
 			tag.WriteString("\n")
 			if tr.table.sep {
-				for i := 0; i < tr.table.cols; i++ {
+				for i := range tr.table.cols {
 					tag.WriteString("---")
 					if i != tr.table.cols-1 {
 						tag.WriteString(" | ")
@@ -388,6 +408,8 @@ func (tr *MarkdownTranslator) Close(n Connector) string {
 			tag.WriteString(" ")
 		case adf.InlineNodeEmoji:
 			tag.WriteString(" ")
+		case adf.MarkUnderline:
+			tag.WriteString("</u>")
 		case adf.MarkStrong:
 			tag.WriteString("**")
 		case adf.MarkEm:

@@ -51,7 +51,7 @@ Paragraph 2
 
 _Italic Text_
 
-Prefix: Underlined Text
+<u>Prefix: Underlined Text</u>
 
 ` + "`" + `Prefix: Inline Code Block` + "`" + `
 
