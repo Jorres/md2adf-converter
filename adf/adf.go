@@ -302,6 +302,17 @@ func NewListItemNode() *ADFNode {
 	}
 }
 
+// Create a panel node
+func NewPanelNode(panelType string) *ADFNode {
+	return &ADFNode{
+		Type: "panel",
+		Attrs: map[string]any{
+			"panelType": panelType,
+		},
+		Content: []*ADFNode{},
+	}
+}
+
 // Convert to JSON
 func (doc *ADFDocument) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")

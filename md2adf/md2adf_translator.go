@@ -109,6 +109,12 @@ func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADF
 		if list != nil {
 			doc.Content = append(doc.Content, list)
 		}
+
+	case "panel":
+		panel := p.convertPanel(node, content)
+		if panel != nil {
+			doc.Content = append(doc.Content, panel)
+		}
 	}
 }
 
@@ -635,4 +641,64 @@ func (p *Translator) extractTextContentWithMarks(node *sitter.Node, inlineConten
 	}
 
 	return textContent.String(), marks
+}
+
+// convertPanel converts a panel node to ADF
+func (p *Translator) convertPanel(node *sitter.Node, content []byte) *adf.ADFNode {
+	var panelType string = "info" // default panel type
+
+	// Create the panel node
+	panel := adf.NewPanelNode(panelType)
+
+	// Process children to find panel_start and content
+	childCount := int(node.ChildCount())
+	for i := range childCount {
+		child := node.Child(uint(i))
+		switch child.Kind() {
+		case "panel_start":
+			// Extract panel type from panel_start
+			panelType = p.extractPanelType(child, content)
+			// Update the panel type attribute
+			panel.Attrs["panelType"] = panelType
+		case "section":
+			// This is a content section within the panel
+			tempDoc := adf.NewADFDocument()
+			p.processChildren(child, content, tempDoc)
+			panel.Content = append(panel.Content, tempDoc.Content...)
+		case "paragraph", "atx_heading", "fenced_code_block", "list":
+			// Direct content nodes within the panel
+			tempDoc := adf.NewADFDocument()
+			p.processNode(child, content, tempDoc)
+			panel.Content = append(panel.Content, tempDoc.Content...)
+		case "panel_end_mark":
+			// Ignore panel end mark
+			continue
+		}
+	}
+
+	return panel
+}
+
+// extractPanelType extracts the panel type from a panel_start node
+func (p *Translator) extractPanelType(panelStartNode *sitter.Node, content []byte) string {
+	childCount := int(panelStartNode.ChildCount())
+	for i := range childCount {
+		child := panelStartNode.Child(uint(i))
+		if child.Kind() == "panel_type" {
+			// Look for the type child within panel_type
+			typeChildCount := int(child.ChildCount())
+			for j := range typeChildCount {
+				typeChild := child.Child(uint(j))
+				if typeChild.Kind() == "type" {
+					typeText := string(content[typeChild.StartByte():typeChild.EndByte()])
+					// Remove the # prefix if present
+					if strings.HasPrefix(typeText, "#") {
+						return strings.TrimPrefix(typeText, "#")
+					}
+					return typeText
+				}
+			}
+		}
+	}
+	return "info" // default fallback
 }

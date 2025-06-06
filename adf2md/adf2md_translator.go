@@ -97,8 +97,7 @@ func (a *Translator) walk() {
 func (a *Translator) CheckSupport(n *adf.ADFNode) map[adf.NodeType]bool {
 	forbidden := make(map[adf.NodeType]bool)
 
-	if n.Type == adf.NodePanel ||
-		n.Type == adf.NodeBlockquote ||
+	if n.Type == adf.NodeBlockquote ||
 		n.Type == adf.NodeTable {
 		forbidden[n.Type] = true
 	}
@@ -565,12 +564,6 @@ func (*MarkdownTranslator) extractCardURL(attrs interface{}) string {
 }
 
 const (
-	bgColorInfo    = "#deebff"
-	bgColorNote    = "#eae6ff"
-	bgColorError   = "#ffebe6"
-	bgColorSuccess = "#e3fcef"
-	bgColorWarning = "#fffae6"
-
 	panelTypeInfo    = "info"
 	panelTypeNote    = "note"
 	panelTypeError   = "error"
@@ -622,24 +615,13 @@ func nodePanelOpenHook(n Connector) string {
 
 	tag.WriteString("\n{panel")
 	if attrs != nil {
-		a := attrs.(map[string]interface{})
+		a := attrs.(map[string]any)
 		if len(a) > 0 {
 			tag.WriteString(":")
 		}
 		for k, v := range a {
 			if k == "panelType" {
-				switch v {
-				case panelTypeInfo:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorInfo))
-				case panelTypeNote:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorNote))
-				case panelTypeError:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorError))
-				case panelTypeSuccess:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorSuccess))
-				case panelTypeWarning:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorWarning))
-				}
+				tag.WriteString(fmt.Sprintf("type=%s", v.(string)))
 			} else {
 				tag.WriteString(fmt.Sprintf("|%s=%s", k, v))
 			}
@@ -651,5 +633,5 @@ func nodePanelOpenHook(n Connector) string {
 }
 
 func nodePanelCloseHook(Connector) string {
-	return "{panel}\n"
+	return "{/panel}\n"
 }
