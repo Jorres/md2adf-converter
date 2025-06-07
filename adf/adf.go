@@ -313,6 +313,44 @@ func NewPanelNode(panelType string) *ADFNode {
 	}
 }
 
+// NewTableNode creates a new ADF table node
+func NewTableNode() *ADFNode {
+	return &ADFNode{
+		Type: NodeTable,
+		Attrs: map[string]any{
+			"isNumberColumnEnabled": false,
+			"layout":                "align-start",
+		},
+		Content: []*ADFNode{},
+	}
+}
+
+// NewTableRowNode creates a new ADF table row node
+func NewTableRowNode() *ADFNode {
+	return &ADFNode{
+		Type:    ChildNodeTableRow,
+		Content: []*ADFNode{},
+	}
+}
+
+// NewTableHeaderNode creates a new ADF table header node
+func NewTableHeaderNode() *ADFNode {
+	return &ADFNode{
+		Type:    ChildNodeTableHeader,
+		Attrs:   map[string]any{},
+		Content: []*ADFNode{},
+	}
+}
+
+// NewTableCellNode creates a new ADF table cell node
+func NewTableCellNode() *ADFNode {
+	return &ADFNode{
+		Type:    ChildNodeTableCell,
+		Attrs:   map[string]any{},
+		Content: []*ADFNode{},
+	}
+}
+
 // Convert to JSON
 func (doc *ADFDocument) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(doc, "", "  ")

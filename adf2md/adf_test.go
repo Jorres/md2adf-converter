@@ -73,10 +73,10 @@ _Italic Text_
             1. third level
                 1. fourth level
 
-**Table Header 1** | **Table Header 2** | **Table Header 3**
---- | --- | ---
-Table row 1 column 1 | Table row 1 column 2 | Table row 1 column 3
-Table row 2 column 1 | Table row 2 column 2 | Table row 2 column 3
+| **Table Header 1**   | **Table Header 2**   | **Table Header 3**   |
+|----------------------|----------------------|----------------------|
+| Table row 1 column 1 | Table row 1 column 2 | Table row 1 column 3 |
+| Table row 2 column 1 | Table row 2 column 2 | Table row 2 column 3 |
 ` + "```" + `go
 package main
 
@@ -89,11 +89,11 @@ func main() {
 }
 ` + "```" + `
 
-**Table Header 1** | **Table Header 2** | **Table Header 3** | **Table Header 4** | **Table Header 5**
---- | --- | --- | --- | ---
-Table row 1 column 1 | Table row 2 column 1 | Table row 3 column 1 | Table row 4 column 1 | Table row 5 column 1
-Table row 1 column 2 | Table row 2 column 2 | Table row 3 column 2 | Table row 4 column 2 | Table row 5 column 2
-Table row 1 column 2 | Table row 2 column 3 | Table row 3 column 3 | Table row 4 column 3 | Table row 5 column 3
+| **Table Header 1**   | **Table Header 2**   | **Table Header 3**   | **Table Header 4**   | **Table Header 5**   |
+|----------------------|----------------------|----------------------|----------------------|----------------------|
+| Table row 1 column 1 | Table row 2 column 1 | Table row 3 column 1 | Table row 4 column 1 | Table row 5 column 1 |
+| Table row 1 column 2 | Table row 2 column 2 | Table row 3 column 2 | Table row 4 column 2 | Table row 5 column 2 |
+| Table row 1 column 2 | Table row 2 column 3 | Table row 3 column 3 | Table row 4 column 3 | Table row 5 column 3 |
 `
 
 	assert.Equal(t, expected, tr.Translate(&adf))

@@ -3,8 +3,8 @@ package adf2md
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"github.com/jorres/md2adf-translator/adf"
+	"log"
 	"strings"
 )
 
@@ -97,8 +97,7 @@ func (a *Translator) walk() {
 func (a *Translator) CheckSupport(n *adf.ADFNode) map[adf.NodeType]bool {
 	forbidden := make(map[adf.NodeType]bool)
 
-	if n.Type == adf.NodeBlockquote ||
-		n.Type == adf.NodeTable {
+	if n.Type == adf.NodeBlockquote {
 		forbidden[n.Type] = true
 	}
 
@@ -154,7 +153,31 @@ func (a *Translator) visit(n *adf.ADFNode, parent *adf.ADFNode, depth int) {
 			}
 		}
 
-		tag.WriteString(sanitize(n.Text))
+		textContent := sanitize(n.Text)
+		
+		// If we're inside a table cell, accumulate content in the translator
+		var mdTranslator *MarkdownTranslator
+		if mt, ok := a.tsl.(*MarkdownTranslator); ok {
+			mdTranslator = mt
+		} else if jmt, ok := a.tsl.(*JiraMarkdownTranslator); ok {
+			mdTranslator = jmt.MarkdownTranslator
+		}
+		
+		if mdTranslator != nil && mdTranslator.isInTableCell() {
+			// Add opening marks
+			for _, m := range opened {
+				mdTranslator.addCellContent(a.tsl.Open(m, depth))
+			}
+			mdTranslator.addCellContent(textContent)
+			// Add closing marks
+			for i := len(opened) - 1; i >= 0; i-- {
+				m := opened[i]
+				mdTranslator.addCellContent(a.tsl.Close(m))
+			}
+			return
+		}
+
+		tag.WriteString(textContent)
 
 		// Close tags in reverse order.
 		for i := len(opened) - 1; i >= 0; i-- {
@@ -183,10 +206,14 @@ type UserEmailResolver func(userID string) string
 // MarkdownTranslator is a markdown translator.
 type MarkdownTranslator struct {
 	table struct {
-		rows int
-		cols int
-		ccol int // current column count
-		sep  bool
+		rows        int
+		cols        int
+		ccol        int        // current column count
+		sep         bool
+		content     [][]string // store table content for width calculation
+		widths      []int      // column widths
+		inTable     bool       // whether we're currently inside a table
+		inTableCell bool       // whether we're currently inside a table cell/header
 	}
 	list struct {
 		ol, ul  map[int]bool
@@ -249,6 +276,103 @@ func WithUserEmailResolver(resolver UserEmailResolver) MarkdownTranslatorOption 
 // Open implements TagOpener interface.
 //
 //nolint:gocyclo
+// renderTable renders the complete table with proper formatting
+func (tr *MarkdownTranslator) renderTable() string {
+	if len(tr.table.content) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+
+	// Calculate column widths
+	tr.calculateColumnWidths()
+
+	// Render each row
+	for rowIdx, row := range tr.table.content {
+		result.WriteString("|")
+		for colIdx, cell := range row {
+			width := tr.table.widths[colIdx]
+			padded := fmt.Sprintf(" %-*s ", width, cell)
+			result.WriteString(padded)
+			result.WriteString("|")
+		}
+		result.WriteString("\n")
+
+		// Add separator after header row
+		if rowIdx == 0 {
+			result.WriteString("|")
+			for colIdx := range row {
+				width := tr.table.widths[colIdx]
+				separator := strings.Repeat("-", width+2) // +2 for spaces around content
+				result.WriteString(separator)
+				result.WriteString("|")
+			}
+			result.WriteString("\n")
+		}
+	}
+
+	return result.String()
+}
+
+// calculateColumnWidths calculates the maximum width for each column
+func (tr *MarkdownTranslator) calculateColumnWidths() {
+	if len(tr.table.content) == 0 {
+		return
+	}
+
+	maxCols := 0
+	for _, row := range tr.table.content {
+		if len(row) > maxCols {
+			maxCols = len(row)
+		}
+	}
+
+	tr.table.widths = make([]int, maxCols)
+
+	// Find maximum width for each column
+	for _, row := range tr.table.content {
+		for colIdx, cell := range row {
+			if len(cell) > tr.table.widths[colIdx] {
+				tr.table.widths[colIdx] = len(cell)
+			}
+		}
+	}
+
+	// Ensure minimum width of 5 for readability
+	for i := range tr.table.widths {
+		if tr.table.widths[i] < 5 {
+			tr.table.widths[i] = 5
+		}
+	}
+}
+
+// addCellContent adds content to the current table cell
+func (tr *MarkdownTranslator) addCellContent(content string) {
+	if tr.table.rows == 0 || len(tr.table.content) < tr.table.rows {
+		return
+	}
+	
+	currentRow := &tr.table.content[tr.table.rows-1]
+	// Use cols for headers and ccol for regular cells
+	currentCol := tr.table.cols - 1
+	if tr.table.ccol > 0 {
+		currentCol = tr.table.ccol - 1
+	}
+	
+	// Ensure we have enough cells in the current row
+	for len(*currentRow) <= currentCol {
+		*currentRow = append(*currentRow, "")
+	}
+	
+	// Append content to the current cell
+	(*currentRow)[currentCol] += content
+}
+
+// isInTableCell returns true if we're currently inside a table cell
+func (tr *MarkdownTranslator) isInTableCell() bool {
+	return tr.table.inTableCell
+}
+
 func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 	var tag strings.Builder
 
@@ -280,6 +404,7 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 			tag.WriteString("---\n")
 		case adf.NodeTable:
 			tag.WriteString("\n")
+			tr.table.inTable = true
 		case adf.NodeMedia:
 			mediaID := tr.extractMediaID(attrs)
 			if mediaID != "" {
@@ -307,19 +432,21 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 				tag.WriteString("- ")
 			}
 		case adf.ChildNodeTableHeader:
-			if tr.table.cols != 0 {
-				tag.WriteString(" | ")
-			}
 			tr.table.cols++
+			tr.table.inTableCell = true
+			// Don't output anything, content will be captured later
 		case adf.ChildNodeTableCell:
-			if tr.table.ccol != 0 {
-				tag.WriteString(" | ")
-			}
 			tr.table.ccol++
+			tr.table.inTableCell = true
+			// Don't output anything, content will be captured later
 		case adf.ChildNodeTableRow:
 			tr.table.rows++
 			if tr.table.rows == 1 && !tr.table.sep {
 				tr.table.sep = true
+			}
+			// Initialize row in content if needed
+			if len(tr.table.content) < tr.table.rows {
+				tr.table.content = append(tr.table.content, make([]string, 0))
 			}
 			tr.table.ccol = 0
 		case adf.InlineNodeHardBreak:
@@ -388,21 +515,22 @@ func (tr *MarkdownTranslator) Close(n Connector) string {
 				tag.WriteString("\n\n")
 			}
 		case adf.NodeTable:
+			// Render the complete table with proper formatting
+			tag.WriteString(tr.renderTable())
+			// Reset table state
 			tr.table.rows = 0
 			tr.table.cols = 0
 			tr.table.sep = false
+			tr.table.content = nil
+			tr.table.widths = nil
+			tr.table.inTable = false
+			tr.table.inTableCell = false
+		case adf.ChildNodeTableHeader:
+			tr.table.inTableCell = false
+		case adf.ChildNodeTableCell:
+			tr.table.inTableCell = false
 		case adf.ChildNodeTableRow:
-			tag.WriteString("\n")
-			if tr.table.sep {
-				for i := range tr.table.cols {
-					tag.WriteString("---")
-					if i != tr.table.cols-1 {
-						tag.WriteString(" | ")
-					}
-				}
-				tr.table.sep = false
-				tag.WriteString("\n")
-			}
+			// Table rows are handled in renderTable()
 		case adf.InlineNodeMention:
 			tag.WriteString(" ")
 		case adf.InlineNodeEmoji:

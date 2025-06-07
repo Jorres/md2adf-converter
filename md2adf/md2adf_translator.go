@@ -112,6 +112,12 @@ func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADF
 		if panel != nil {
 			doc.Content = append(doc.Content, panel)
 		}
+
+	case "pipe_table":
+		table := p.convertPipeTable(node, content)
+		if table != nil {
+			doc.Content = append(doc.Content, table)
+		}
 	}
 }
 
@@ -698,4 +704,87 @@ func (p *Translator) extractPanelType(panelStartNode *sitter.Node, content []byt
 		}
 	}
 	return "info" // default fallback
+}
+
+// convertPipeTable converts a pipe table to ADF table
+func (p *Translator) convertPipeTable(node *sitter.Node, content []byte) *adf.ADFNode {
+	table := adf.NewTableNode()
+	
+	childCount := int(node.ChildCount())
+	for i := range childCount {
+		child := node.Child(uint(i))
+		switch child.Kind() {
+		case "pipe_table_header":
+			headerRow := p.convertPipeTableRow(child, content, true)
+			if headerRow != nil {
+				table.Content = append(table.Content, headerRow)
+			}
+		case "pipe_table_row":
+			dataRow := p.convertPipeTableRow(child, content, false)
+			if dataRow != nil {
+				table.Content = append(table.Content, dataRow)
+			}
+		case "pipe_table_delimiter_row":
+			// Skip delimiter rows - they're just formatting
+			continue
+		}
+	}
+	
+	return table
+}
+
+// convertPipeTableRow converts a pipe table row to ADF table row
+func (p *Translator) convertPipeTableRow(node *sitter.Node, content []byte, isHeader bool) *adf.ADFNode {
+	row := adf.NewTableRowNode()
+	
+	childCount := int(node.ChildCount())
+	for i := range childCount {
+		child := node.Child(uint(i))
+		if child.Kind() == "pipe_table_cell" {
+			var cell *adf.ADFNode
+			if isHeader {
+				cell = adf.NewTableHeaderNode()
+			} else {
+				cell = adf.NewTableCellNode()
+			}
+			
+			// Get cell content and convert it
+			cellText := strings.TrimSpace(string(content[child.StartByte():child.EndByte()]))
+			if cellText != "" {
+				paragraph := adf.NewParagraphNode()
+				
+				// Parse formatting within the cell
+				p.parseCellContent(cellText, paragraph, isHeader)
+				
+				cell.Content = append(cell.Content, paragraph)
+			} else {
+				// Empty cell gets empty paragraph
+				cell.Content = append(cell.Content, adf.NewParagraphNode())
+			}
+			
+			row.Content = append(row.Content, cell)
+		}
+	}
+	
+	return row
+}
+
+// parseCellContent parses the content of a table cell and handles formatting
+func (p *Translator) parseCellContent(cellText string, paragraph *adf.ADFNode, isHeader bool) {
+	// Simple parsing for bold text marked with **text**
+	if strings.HasPrefix(cellText, "**") && strings.HasSuffix(cellText, "**") && len(cellText) > 4 {
+		// Bold text
+		innerText := cellText[2 : len(cellText)-2]
+		textNode := adf.NewTextNode(innerText)
+		textNode.Marks = append(textNode.Marks, &adf.ADFMark{Type: adf.MarkStrong})
+		paragraph.Content = append(paragraph.Content, textNode)
+	} else {
+		// Plain text
+		textNode := adf.NewTextNode(cellText)
+		// Headers are automatically bold in ADF, but we can add explicit bold mark if needed
+		if isHeader {
+			textNode.Marks = append(textNode.Marks, &adf.ADFMark{Type: adf.MarkStrong})
+		}
+		paragraph.Content = append(paragraph.Content, textNode)
+	}
 }
