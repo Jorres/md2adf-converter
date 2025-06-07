@@ -2,7 +2,7 @@ package md2adf
 
 import (
 	"encoding/json"
-	"github.com/jorres/md2adf-converter/adf"
+	"github.com/jorres/md2adf-translator/adf"
 	"testing"
 
 	tree_sitter_markdown "github.com/jorres/tree-sitter-jira-markdown/bindings/go"

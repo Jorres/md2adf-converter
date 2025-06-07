@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"github.com/jorres/md2adf-converter/md2adf"
+	"github.com/jorres/md2adf-translator/md2adf"
 	"os"
 )
 

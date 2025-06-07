@@ -1,4 +1,4 @@
-module github.com/jorres/md2adf-converter
+module github.com/jorres/md2adf-translator
 
 go 1.23
 

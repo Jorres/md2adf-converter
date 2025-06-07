@@ -2,16 +2,13 @@ package md2adf
 
 import (
 	"fmt"
-	"github.com/jorres/md2adf-converter/adf"
-	"github.com/jorres/md2adf-converter/adf2md"
-	"github.com/jorres/md2adf-converter/debug"
+	"github.com/jorres/md2adf-translator/adf"
+	"github.com/jorres/md2adf-translator/adf2md"
 	"strings"
 
 	tree_sitter_markdown "github.com/jorres/tree-sitter-jira-markdown/bindings/go"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
-
-var _ = debug.Debug
 
 type Translator struct {
 	markdownParser *tree_sitter_markdown.AdfMarkdownParser
