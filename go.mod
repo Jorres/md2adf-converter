@@ -1,4 +1,4 @@
-module md-adf-exp
+module github.com/jorres/md2adf-converter
 
 go 1.23
 

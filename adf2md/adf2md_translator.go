@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"md-adf-exp/adf"
+	"github.com/jorres/md2adf-converter/adf"
 	"strings"
 )
 

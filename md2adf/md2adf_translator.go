@@ -2,9 +2,9 @@ package md2adf
 
 import (
 	"fmt"
-	"md-adf-exp/adf"
-	"md-adf-exp/adf2md"
-	"md-adf-exp/debug"
+	"github.com/jorres/md2adf-converter/adf"
+	"github.com/jorres/md2adf-converter/adf2md"
+	"github.com/jorres/md2adf-converter/debug"
 	"strings"
 
 	tree_sitter_markdown "github.com/tree-sitter-grammars/tree-sitter-markdown/bindings/go"

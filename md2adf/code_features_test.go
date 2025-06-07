@@ -2,7 +2,7 @@ package md2adf
 
 import (
 	"encoding/json"
-	"md-adf-exp/adf"
+	"github.com/jorres/md2adf-converter/adf"
 	"testing"
 )
 
