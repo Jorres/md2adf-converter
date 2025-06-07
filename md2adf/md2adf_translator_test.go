@@ -5,7 +5,7 @@ import (
 	"github.com/jorres/md2adf-converter/adf"
 	"testing"
 
-	tree_sitter_markdown "github.com/tree-sitter-grammars/tree-sitter-markdown/bindings/go"
+	tree_sitter_markdown "github.com/jorres/tree-sitter-jira-markdown/bindings/go"
 )
 
 func TestCleanInterfaceStructure(t *testing.T) {
