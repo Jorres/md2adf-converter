@@ -62,6 +62,85 @@ func (p *Translator) TranslateToADF(content []byte) (*adf.ADFDocument, error) {
 	return doc, nil
 }
 
+// CheckSafeForV2 parses the markdown content into an ADF tree and checks if it contains
+// any node types that are not safe for V2 processing. Returns an error if unsafe nodes are found.
+func (p *Translator) CheckSafeForV2(body string) error {
+	doc, err := p.TranslateToADF([]byte(body))
+	if err != nil {
+		return fmt.Errorf("failed to parse markdown: %w", err)
+	}
+
+	// Define the unsafe node types
+	unsafeTypes := map[adf.NodeType]bool{
+		adf.NodePanel:           true,
+		adf.NodeMedia:           true,
+		adf.NodeMediaGroup:      true,
+		adf.NodeMediaSingle:     true,
+		adf.InlineNodeCard:      true,
+		adf.InlineNodeEmoji:     true,
+		adf.InlineNodeMention:   true,
+		adf.InlineNodeHardBreak: true,
+		adf.MarkUnderline:       true,
+	}
+
+	// Traverse the ADF tree and collect unsafe node types
+	var foundUnsafeTypes []adf.NodeType
+	p.traverseADFTree(doc, unsafeTypes, &foundUnsafeTypes)
+
+	if len(foundUnsafeTypes) > 0 {
+		return fmt.Errorf("unsafe node types found: %v", foundUnsafeTypes)
+	}
+
+	return nil
+}
+
+// traverseADFTree recursively traverses the ADF tree and collects unsafe node types
+func (p *Translator) traverseADFTree(doc *adf.ADFDocument, unsafeTypes map[adf.NodeType]bool, foundUnsafeTypes *[]adf.NodeType) {
+	for _, node := range doc.Content {
+		p.traverseADFNode(node, unsafeTypes, foundUnsafeTypes)
+	}
+}
+
+// traverseADFNode recursively traverses an ADF node and its children
+func (p *Translator) traverseADFNode(node *adf.ADFNode, unsafeTypes map[adf.NodeType]bool, foundUnsafeTypes *[]adf.NodeType) {
+	// Check if this node type is unsafe
+	if unsafeTypes[node.Type] {
+		// Add to found list if not already present
+		alreadyFound := false
+		for _, existingType := range *foundUnsafeTypes {
+			if existingType == node.Type {
+				alreadyFound = true
+				break
+			}
+		}
+		if !alreadyFound {
+			*foundUnsafeTypes = append(*foundUnsafeTypes, node.Type)
+		}
+	}
+
+	// Check marks for unsafe types (like underline)
+	for _, mark := range node.Marks {
+		if unsafeTypes[mark.Type] {
+			// Add to found list if not already present
+			alreadyFound := false
+			for _, existingType := range *foundUnsafeTypes {
+				if existingType == mark.Type {
+					alreadyFound = true
+					break
+				}
+			}
+			if !alreadyFound {
+				*foundUnsafeTypes = append(*foundUnsafeTypes, mark.Type)
+			}
+		}
+	}
+
+	// Recursively traverse child nodes
+	for _, child := range node.Content {
+		p.traverseADFNode(child, unsafeTypes, foundUnsafeTypes)
+	}
+}
+
 // processNode processes a tree-sitter node and converts it to ADF
 func (p *Translator) processNode(node *sitter.Node, content []byte, doc *adf.ADFDocument) {
 	nodeType := node.Kind()
@@ -709,7 +788,7 @@ func (p *Translator) extractPanelType(panelStartNode *sitter.Node, content []byt
 // convertPipeTable converts a pipe table to ADF table
 func (p *Translator) convertPipeTable(node *sitter.Node, content []byte) *adf.ADFNode {
 	table := adf.NewTableNode()
-	
+
 	childCount := int(node.ChildCount())
 	for i := range childCount {
 		child := node.Child(uint(i))
@@ -729,14 +808,14 @@ func (p *Translator) convertPipeTable(node *sitter.Node, content []byte) *adf.AD
 			continue
 		}
 	}
-	
+
 	return table
 }
 
 // convertPipeTableRow converts a pipe table row to ADF table row
 func (p *Translator) convertPipeTableRow(node *sitter.Node, content []byte, isHeader bool) *adf.ADFNode {
 	row := adf.NewTableRowNode()
-	
+
 	childCount := int(node.ChildCount())
 	for i := range childCount {
 		child := node.Child(uint(i))
@@ -747,25 +826,25 @@ func (p *Translator) convertPipeTableRow(node *sitter.Node, content []byte, isHe
 			} else {
 				cell = adf.NewTableCellNode()
 			}
-			
+
 			// Get cell content and convert it
 			cellText := strings.TrimSpace(string(content[child.StartByte():child.EndByte()]))
 			if cellText != "" {
 				paragraph := adf.NewParagraphNode()
-				
+
 				// Parse formatting within the cell
 				p.parseCellContent(cellText, paragraph, isHeader)
-				
+
 				cell.Content = append(cell.Content, paragraph)
 			} else {
 				// Empty cell gets empty paragraph
 				cell.Content = append(cell.Content, adf.NewParagraphNode())
 			}
-			
+
 			row.Content = append(row.Content, cell)
 		}
 	}
-	
+
 	return row
 }
 
