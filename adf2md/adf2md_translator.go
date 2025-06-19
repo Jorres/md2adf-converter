@@ -97,6 +97,10 @@ func (a *Translator) walk() {
 func (a *Translator) CheckSupport(n *adf.ADFNode) map[adf.NodeType]bool {
 	forbidden := make(map[adf.NodeType]bool)
 
+	if n == nil {
+		return forbidden
+	}
+
 	if n.Type == adf.NodeBlockquote {
 		forbidden[n.Type] = true
 	}
@@ -154,7 +158,7 @@ func (a *Translator) visit(n *adf.ADFNode, parent *adf.ADFNode, depth int) {
 		}
 
 		textContent := sanitize(n.Text)
-		
+
 		// If we're inside a table cell, accumulate content in the translator
 		var mdTranslator *MarkdownTranslator
 		if mt, ok := a.tsl.(*MarkdownTranslator); ok {
@@ -162,7 +166,7 @@ func (a *Translator) visit(n *adf.ADFNode, parent *adf.ADFNode, depth int) {
 		} else if jmt, ok := a.tsl.(*JiraMarkdownTranslator); ok {
 			mdTranslator = jmt.MarkdownTranslator
 		}
-		
+
 		if mdTranslator != nil && mdTranslator.isInTableCell() {
 			// Add opening marks
 			for _, m := range opened {
@@ -208,7 +212,7 @@ type MarkdownTranslator struct {
 	table struct {
 		rows        int
 		cols        int
-		ccol        int        // current column count
+		ccol        int // current column count
 		sep         bool
 		content     [][]string // store table content for width calculation
 		widths      []int      // column widths
@@ -275,8 +279,9 @@ func WithUserEmailResolver(resolver UserEmailResolver) MarkdownTranslatorOption 
 
 // Open implements TagOpener interface.
 //
-//nolint:gocyclo
 // renderTable renders the complete table with proper formatting
+//
+//nolint:gocyclo
 func (tr *MarkdownTranslator) renderTable() string {
 	if len(tr.table.content) == 0 {
 		return ""
@@ -351,19 +356,19 @@ func (tr *MarkdownTranslator) addCellContent(content string) {
 	if tr.table.rows == 0 || len(tr.table.content) < tr.table.rows {
 		return
 	}
-	
+
 	currentRow := &tr.table.content[tr.table.rows-1]
 	// Use cols for headers and ccol for regular cells
 	currentCol := tr.table.cols - 1
 	if tr.table.ccol > 0 {
 		currentCol = tr.table.ccol - 1
 	}
-	
+
 	// Ensure we have enough cells in the current row
 	for len(*currentRow) <= currentCol {
 		*currentRow = append(*currentRow, "")
 	}
-	
+
 	// Append content to the current cell
 	(*currentRow)[currentCol] += content
 }
